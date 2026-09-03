@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dlo-500.github.io/text-to-handwriting/sitemap.xml
