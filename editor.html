@@ -70,7 +70,7 @@
   }
 
   .theme-toggle-btn {
-    background: #fff;
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 20px;
     padding: 0.3rem 0.65rem;
@@ -81,10 +81,6 @@
     align-items: center;
     gap: 0.3rem;
     color: var(--text-color);
-  }
-  body.dark-mode .theme-toggle-btn {
-    background: #2b2e38;
-    border-color: #434855;
   }
 
   .back-link, .template-nav-link {
@@ -207,11 +203,11 @@
     cursor: pointer;
   }
 
-  /* Editor Canvas Container */
+  /* Canvas Container */
   .editor-canvas-wrapper {
     position: relative;
     width: 100%;
-    background: #ffffff;
+    background-color: #ffffff;
     border: 1px solid var(--border-color);
     border-radius: 0 0 6px 6px;
     box-shadow: 0 12px 28px -14px rgba(35,40,58,0.22);
@@ -219,25 +215,16 @@
   }
 
   #editor-body {
-    background: transparent;
-    border: none;
+    background: transparent !important;
+    border: none !important;
     min-height: 850px;
     position: relative;
+    z-index: 2;
   }
 
-  /* Ruled lines & margins */
-  .editor-canvas-wrapper.ruled-paper {
-    background-image: repeating-linear-gradient(
-      transparent,
-      transparent 31px,
-      var(--line-grid) 31px,
-      var(--line-grid) 32px
-    );
-    background-size: 100% 32px;
-  }
-
-  .editor-canvas-wrapper.ruled-margin {
-    box-shadow: inset 54px 0 0 0 transparent, inset 55px 0 0 0 var(--margin-rule), 0 12px 28px -14px rgba(35,40,58,0.22);
+  .ql-container.ql-snow {
+    border: none !important;
+    background: transparent !important;
   }
 
   .ql-editor {
@@ -247,11 +234,46 @@
     font-size: 16px;
     line-height: 2;
     color: #23283a;
+    background: transparent !important;
     box-sizing: border-box;
   }
   .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
+  .ql-editor img {
+    display: block;
+    max-width: 100%;
+    margin: 0.5rem 0;
+    border-radius: 2px;
+  }
 
-  /* Draggable Floating Signature Element */
+  /* Ruled lines */
+  .editor-canvas-wrapper.ruled-paper {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      #ffffff 0px,
+      #ffffff 31px,
+      #d4d9e2 31px,
+      #d4d9e2 32px
+    ) !important;
+    background-size: 100% 32px !important;
+  }
+
+  /* Red left physical margin */
+  .margin-line-indicator {
+    display: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 64px;
+    width: 2px;
+    background-color: #e78c8c;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .editor-canvas-wrapper.ruled-margin .margin-line-indicator {
+    display: block;
+  }
+
+  /* Floating, Draggable Signature */
   .floating-signature {
     position: absolute;
     border: 1px dashed var(--maroon-theme);
@@ -299,15 +321,21 @@
     cursor: se-resize;
   }
 
-  /* Custom Toolbar Sign button */
+  /* Custom Toolbar Buttons */
   .ql-signature::before {
     content: '✍️ Sign';
     font-family: var(--font-body, system-ui);
     font-size: 0.78rem;
     font-weight: 600;
   }
+  .ql-custom-image::before {
+    content: '🖼️ Image';
+    font-family: var(--font-body, system-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
 
-  /* Fonts */
+  /* Font Families */
   .ql-font-arial { font-family: Arial, sans-serif; }
   .ql-font-georgia { font-family: Georgia, serif; }
   .ql-font-lora { font-family: 'Lora', serif; }
@@ -544,6 +572,7 @@
         </span>
 
         <span class="ql-formats">
+          <button type="button" class="ql-custom-image" id="btnInsertImage" title="Insert Picture/Image"></button>
           <button type="button" class="ql-signature" id="btnInsertSig" title="Insert Draggable Signature"></button>
           <button class="ql-clean" title="Clear Formatting"></button>
         </span>
@@ -566,6 +595,7 @@
       </div>
 
       <div class="editor-canvas-wrapper ruled-paper ruled-margin" id="canvasWrapper">
+        <div class="margin-line-indicator" id="marginLine"></div>
         <div id="editor-body"></div>
       </div>
 
@@ -575,6 +605,8 @@
       </div>
     </div>
   </div>
+
+  <input type="file" id="generalImageInput" accept="image/*" style="display:none;">
 
   <!-- Signature Selector Modal -->
   <div class="sig-modal" id="sigPickerModal">
@@ -655,7 +687,25 @@
       placeholder: 'Start writing your application or letter here…'
     });
 
-    /* ---------- Fine-Grained Word Controls: Line Height & Letter Spacing ---------- */
+    /* ---------- Insert General Image ---------- */
+    el('btnInsertImage').addEventListener('click', () => {
+      el('generalImageInput').click();
+    });
+
+    el('generalImageInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = evt => {
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', evt.target.result);
+        quill.setSelection(range.index + 1);
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+
+    /* ---------- Line Height & Letter Spacing Controls ---------- */
     el('lineHeightInput').addEventListener('input', e => {
       const val = parseFloat(e.target.value) || 2.0;
       document.querySelector('#editor-body .ql-editor').style.lineHeight = val;
@@ -668,11 +718,11 @@
     });
 
     function updateRuledBackground() {
+      if (!el('toggleRuled').checked) return;
       const lh = parseFloat(el('lineHeightInput').value) || 2.0;
-      const fs = 16;
-      const rowHeight = Math.round(fs * lh);
+      const rowHeight = Math.round(16 * lh);
       const wrapper = el('canvasWrapper');
-      wrapper.style.backgroundImage = `repeating-linear-gradient(transparent, transparent ${rowHeight - 1}px, var(--line-grid) ${rowHeight - 1}px, var(--line-grid) ${rowHeight}px)`;
+      wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px)`;
       wrapper.style.backgroundSize = `100% ${rowHeight}px`;
     }
 
@@ -760,7 +810,7 @@
       el('sigPickerModal').style.display = 'flex';
     }
 
-    /* ---------- Draggable / Free-Floating Signature Implementation ---------- */
+    /* ---------- Draggable Floating Signature ---------- */
     function createFloatingSignature(dataUrl) {
       if (!isValidSignatureDataUrl(dataUrl)) return;
       const wrapper = el('canvasWrapper');
@@ -789,7 +839,6 @@
       resizeHandle.className = 'sig-resize-handle';
       sigBox.appendChild(resizeHandle);
 
-      // Dragging logic
       let isDragging = false, startX, startY, initLeft, initTop;
       sigBox.addEventListener('mousedown', e => {
         if (e.target === delBtn || e.target === resizeHandle) return;
@@ -801,7 +850,6 @@
         e.preventDefault();
       });
 
-      // Resizing logic
       let isResizing = false, initW, initMouseX;
       resizeHandle.addEventListener('mousedown', e => {
         isResizing = true;
@@ -872,9 +920,8 @@
       const wrapper = el('canvasWrapper');
       const clone = wrapper.cloneNode(true);
 
-      // Clean interactive markers from clone
-      clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(el => el.remove());
-      clone.querySelectorAll('.floating-signature').forEach(el => el.style.border = 'none');
+      clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(node => node.remove());
+      clone.querySelectorAll('.floating-signature').forEach(node => node.style.border = 'none');
 
       clone.style.position = 'fixed';
       clone.style.left = '-9999px';
@@ -884,6 +931,16 @@
       clone.style.overflow = 'visible';
       clone.style.boxShadow = 'none';
       clone.style.backgroundColor = '#ffffff';
+
+      // Keep lines active on clone
+      if (el('toggleRuled').checked) {
+        const lh = parseFloat(el('lineHeightInput').value) || 2.0;
+        const rowHeight = Math.round(16 * lh);
+        clone.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px)`;
+        clone.style.backgroundSize = `100% ${rowHeight}px`;
+      } else {
+        clone.style.backgroundImage = 'none';
+      }
 
       document.body.appendChild(clone);
 
