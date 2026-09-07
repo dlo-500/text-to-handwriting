@@ -55,7 +55,7 @@
     .editor-shell { display: flex; flex-direction: column; align-items: center; padding: 1rem 1rem 2rem; }
     .page-container { width: 100%; max-width: 820px; }
 
-    /* ----- TOOLBAR: spacious, well-aligned ----- */
+    /* ----- TOOLBAR: clean two-row layout ----- */
     #toolbar {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
@@ -63,30 +63,30 @@
       border-radius: 6px 6px 0 0;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 6px;
+      padding: 8px 12px;
     }
     .toolbar-row {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px 16px;
+      gap: 4px 8px;
     }
     .toolbar-group {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       flex-wrap: wrap;
     }
     .toolbar-divider {
       width: 1px;
-      height: 30px;
+      height: 26px;
       background: var(--border-color);
       flex-shrink: 0;
       margin: 0 4px;
     }
 
-    /* unified control sizing with breathing room */
+    /* unified control sizing */
     .toolbar-group select,
     .toolbar-group button,
     .toolbar-group .ql-picker,
@@ -95,12 +95,11 @@
     .toolbar-group .ql-signature,
     .btn,
     .font-upload-btn,
-    #paperTextureSelect,
-    #snippetSelect {
-      height: 34px !important;
+    #paperTextureSelect {
+      height: 32px !important;
       box-sizing: border-box !important;
-      font-size: 0.82rem !important;
-      padding: 4px 14px !important;
+      font-size: 0.8rem !important;
+      padding: 4px 10px !important;
       border-radius: 4px !important;
       border: 1px solid var(--border-color) !important;
       background: var(--bg-card) !important;
@@ -109,12 +108,10 @@
       align-items: center !important;
       cursor: pointer;
       line-height: 1 !important;
-      min-width: auto !important;
-      white-space: nowrap !important;
     }
     .toolbar-group select {
-      padding: 4px 10px !important;
-      height: 34px !important;
+      padding: 4px 6px !important;
+      height: 32px !important;
     }
     .toolbar-group button:hover,
     .toolbar-group select:hover,
@@ -125,60 +122,71 @@
     .ql-custom-image::before { content: '🖼️ Image'; }
     .ql-signature::before { content: '✍️ Sign'; }
     .ql-custom-image, .ql-signature {
+      min-width: auto !important;
       justify-content: center !important;
-      gap: 4px !important;
+      gap: 2px !important;
       font-weight: 600 !important;
-      padding: 4px 14px !important;
     }
     .btn#btnInsertTable, .btn#btnStamp {
       font-weight: 600 !important;
-      padding: 4px 14px !important;
+      min-width: auto !important;
+      padding: 4px 12px !important;
     }
 
     .word-ctrl-item {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.82rem;
-      font-weight: 500;
+      gap: 4px;
+      font-size: 0.8rem;
     }
     .word-ctrl-item input[type="number"] {
-      width: 52px !important;
-      padding: 4px 6px !important;
-      height: 34px !important;
+      width: 48px !important;
+      padding: 2px 4px !important;
+      height: 32px !important;
       text-align: center;
     }
 
     .paper-style-group {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       flex-wrap: wrap;
     }
     .paper-style-group label {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 0.82rem;
+      gap: 4px;
+      font-size: 0.8rem;
       cursor: pointer;
       white-space: nowrap;
     }
     .paper-style-group label input[type="checkbox"] {
-      width: 17px; height: 17px; margin: 0; cursor: pointer;
+      width: 16px; height: 16px; margin: 0; cursor: pointer;
     }
     #paperTextureSelect {
-      height: 34px !important;
-      padding: 4px 14px !important;
-      font-size: 0.82rem !important;
+      height: 32px !important;
+      padding: 4px 10px !important;
+      background: var(--bg-card) !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 4px !important;
+      font-size: 0.8rem !important;
+      color: var(--text-color) !important;
+      cursor: pointer;
     }
     .font-upload-btn {
-      height: 34px !important;
-      padding: 4px 14px !important;
-      font-size: 0.82rem !important;
+      height: 32px !important;
+      padding: 0 12px !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 4px !important;
+      background: var(--bg-card) !important;
+      color: var(--text-color) !important;
+      font-size: 0.8rem !important;
+      cursor: pointer;
       display: inline-flex !important;
       align-items: center !important;
-      gap: 6px;
+      gap: 4px;
     }
+    .font-upload-btn:hover { border-color: var(--maroon-theme) !important; }
 
     /* canvas */
     .editor-canvas-wrapper {
@@ -381,9 +389,9 @@
       .del-btn, .resize-handle, .add-col-btn, .add-row-btn, .table-header .table-tools { display: none !important; }
     }
     @media (max-width: 700px) {
-      #toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+      #toolbar { flex-direction: column; align-items: stretch; gap: 4px; }
       .toolbar-divider { display: none; }
-      .toolbar-row { flex-wrap: wrap; gap: 8px; }
+      .toolbar-row { flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -405,12 +413,12 @@
 
   <div class="editor-shell">
     <div class="page-container">
-      <!-- TOOLBAR: spacious two-row layout -->
+      <!-- TOOLBAR: two clean rows -->
       <div id="toolbar">
         <!-- Row 1: Typography + Alignment + Lists -->
         <div class="toolbar-row">
           <span class="toolbar-group">
-            <select class="ql-font" style="width:100px;">
+            <select class="ql-font" style="width:90px;">
               <option value="lora" selected>Lora</option><option value="arial">Arial</option><option value="georgia">Georgia</option>
               <option value="playfair">Playfair</option><option value="caveat">Caveat</option><option value="kalam">Kalam</option>
               <option value="shadows">Shadows</option><option value="indie">Indie</option><option value="patrick">Patrick</option>
@@ -421,7 +429,7 @@
               <option value="allura">Allura</option><option value="yellowtail">Yellowtail</option><option value="homemade">Homemade</option>
               <option value="caveatbrush">Caveat Brush</option>
             </select>
-            <select class="ql-size" style="width:64px;"><option value="12px">12</option><option value="14px">14</option><option value="16px" selected>16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="28px">28</option><option value="32px">32</option></select>
+            <select class="ql-size" style="width:56px;"><option value="12px">12</option><option value="14px">14</option><option value="16px" selected>16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="28px">28</option><option value="32px">32</option></select>
           </span>
           <span class="toolbar-divider"></span>
           <span class="toolbar-group">
@@ -432,8 +440,8 @@
           </span>
           <span class="toolbar-divider"></span>
           <span class="toolbar-group">
-            <select class="ql-color" title="Text Color" style="width:70px;"><option value="#23283a" selected>Color</option><option value="#003366">Blue</option><option value="#7a2331">Maroon</option><option value="#1e4620">Green</option></select>
-            <select class="ql-background" title="Highlight" style="width:90px;"><option selected>Highlight</option><option value="#fff9c4">Yellow</option><option value="#c8e6c9">Green</option><option value="#ffcdd2">Pink</option></select>
+            <select class="ql-color" title="Text Color"><option value="#23283a" selected>Color</option><option value="#003366">Blue</option><option value="#7a2331">Maroon</option><option value="#1e4620">Green</option></select>
+            <select class="ql-background" title="Highlight"><option selected>Highlight</option><option value="#fff9c4">Yellow</option><option value="#c8e6c9">Green</option><option value="#ffcdd2">Pink</option></select>
           </span>
           <span class="toolbar-divider"></span>
           <span class="toolbar-group">
@@ -454,16 +462,16 @@
         <!-- Row 2: Spacing + Insert + Paper -->
         <div class="toolbar-row">
           <span class="toolbar-group">
-            <span class="word-ctrl-item">Line: <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0" title="Line Height"></span>
-            <span class="word-ctrl-item">Space: <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0" title="Letter Spacing"></span>
+            <span class="word-ctrl-item">L: <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0" title="Line Height"></span>
+            <span class="word-ctrl-item">S: <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0" title="Letter Spacing"></span>
           </span>
           <span class="toolbar-divider"></span>
           <span class="toolbar-group">
             <button class="ql-custom-image" id="btnInsertImage"></button>
             <button class="ql-signature" id="btnInsertSig"></button>
-            <button class="btn" id="btnInsertTable">📊 Table</button>
-            <button class="btn" id="btnStamp">🏛️ Stamp</button>
-            <select id="snippetSelect" style="width:110px;">
+            <button class="btn" id="btnInsertTable" style="font-weight:600;">📊 Table</button>
+            <button class="btn" id="btnStamp" style="font-weight:600;">🏛️ Stamp</button>
+            <select id="snippetSelect" style="height:32px;font-size:0.8rem;padding:4px 10px;">
               <option value="">📎 Snippet</option>
               <option value="addressee">To, The Director...</option>
               <option value="subject">Subject: ...</option>
@@ -477,7 +485,7 @@
             <label><input type="checkbox" id="toggleRuled" checked> Lines</label>
             <label><input type="checkbox" id="toggleMargin" checked> Margin</label>
             <label><input type="checkbox" id="toggleInkRealism"> Real Ink</label>
-            <select id="paperTextureSelect" style="width:100px;">
+            <select id="paperTextureSelect">
               <option value="plain">Plain</option><option value="ivory">Ivory</option><option value="parchment">Parchment</option><option value="scanner">Scanner</option>
             </select>
             <label class="font-upload-btn" for="customFontUpload">📁 Upload Font</label>
@@ -864,7 +872,7 @@
       document.querySelector('#editor-body .ql-editor').style.minHeight=initH+'px';
       el('pageSize').addEventListener('change', ()=>{ const h=getStandardPagePixelHeight(); document.querySelector('#editor-body .ql-editor').style.minHeight=h+'px'; updateCounters(); });
       document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='p'){ e.preventDefault(); window.print(); } });
-      console.log('Arzi Pro: spacious toolbar with clear spacing.');
+      console.log('Arzi Pro: toolbar labels fixed, paper controls labeled, two-row layout.');
     })();
   </script>
 </body>
