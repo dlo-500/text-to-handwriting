@@ -1,599 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Arzi — Write Freely</title>
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Playfair+Display:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Caveat+Brush&family=Kalam:wght@400;700&family=Shadows+Into+Light&family=Indie+Flower&family=Patrick+Hand&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Handlee&family=Gochi+Hand&family=Architects+Daughter&family=Covered+By+Your+Grace&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Rock+Salt&family=Dancing+Script:wght@400;600;700&family=Sacramento&family=Satisfy&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Great+Vibes&family=Allura&family=Yellowtail&family=Homemade+Apple&display=swap" rel="stylesheet">
-
-<link rel="stylesheet" href="styles.css">
-<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
-
-<style>
-  :root {
-    --bg-page: #fbf9f4;
-    --bg-surface: #f4efe4;
-    --bg-card: #ffffff;
-    --border-color: #dcd6c8;
-    --text-color: #23283a;
-    --text-soft: #636b78;
-    --maroon-theme: #7a2331;
-    --maroon-hover: #5d1a24;
-    --line-grid: #d4d9e2;
-    --margin-rule: #e78c8c;
-  }
-
-  body.dark-mode {
-    --bg-page: #15161a;
-    --bg-surface: #1e2025;
-    --bg-card: #282a30;
-    --border-color: #3b3f4a;
-    --text-color: #e6e8ee;
-    --text-soft: #9aa1b0;
-    --maroon-theme: #a83849;
-    --maroon-hover: #c4475b;
-    --line-grid: #383c48;
-    --margin-rule: #69323a;
-  }
-
-  body {
-    background: var(--bg-page);
-    color: var(--text-color);
-    margin: 0;
-    padding: 0;
-    font-family: var(--font-body, system-ui, -apple-system, sans-serif);
-    transition: background 0.25s, color 0.25s;
-  }
-
-  .editor-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-  }
-
-  .theme-toggle-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    padding: 0.3rem 0.65rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    color: var(--text-color);
-  }
-
-  .back-link, .template-nav-link {
-    font-size: 0.85rem;
-    color: var(--text-soft);
-    text-decoration: none;
-    font-weight: 500;
-  }
-  .template-nav-link {
-    color: var(--maroon-theme);
-    font-weight: 600;
-    border-left: 1px solid var(--border-color);
-    padding-left: 0.85rem;
-  }
-  .back-link:hover, .template-nav-link:hover { color: var(--maroon-hover); text-decoration: underline; }
-
-  .export-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .export-actions select {
-    padding: 0.45rem 0.6rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 0.82rem;
-    background: var(--bg-card);
-    color: var(--text-color);
-  }
-
-  .btn {
-    font-size: 0.82rem;
-    font-weight: 600;
-    padding: 0.48rem 0.85rem;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-card);
-    color: var(--text-color);
-    cursor: pointer;
-  }
-  .btn.primary {
-    background: var(--maroon-theme);
-    border-color: var(--maroon-theme);
-    color: #ffffff;
-  }
-  .btn.primary:hover { background: var(--maroon-hover); }
-
-  .editor-shell {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 1.5rem 1rem 3rem;
-  }
-
-  .page-container {
-    width: 100%;
-    max-width: 780px;
-  }
-
-  #toolbar {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.45rem;
-  }
-
-  .ql-toolbar.ql-snow {
-    border: 1px solid var(--border-color);
-    box-sizing: border-box;
-    font-family: inherit;
-    padding: 0.45rem;
-    background: var(--bg-surface);
-  }
-
-  .word-controls {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding-left: 0.3rem;
-    border-left: 1px solid var(--border-color);
-    margin-left: 0.25rem;
-  }
-
-  .word-ctrl-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: var(--text-soft);
-  }
-
-  .word-ctrl-item input[type="number"] {
-    width: 46px;
-    padding: 0.25rem;
-    font-size: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 3px;
-    background: var(--bg-card);
-    color: var(--text-color);
-  }
-
-  .paper-style-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-left: 0.4rem;
-    border-left: 1px solid var(--border-color);
-    padding-left: 0.4rem;
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: var(--text-soft);
-  }
-
-  .paper-style-group label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    cursor: pointer;
-  }
-
-  /* Canvas Container */
-  .editor-canvas-wrapper {
-    position: relative;
-    width: 100%;
-    background-color: #ffffff;
-    border: 1px solid var(--border-color);
-    border-radius: 0 0 6px 6px;
-    box-shadow: 0 12px 28px -14px rgba(35,40,58,0.22);
-    overflow: hidden;
-  }
-
-  #editor-body {
-    background: transparent !important;
-    border: none !important;
-    min-height: 850px;
-    position: relative;
-    z-index: 2;
-  }
-
-  .ql-container.ql-snow {
-    border: none !important;
-    background: transparent !important;
-  }
-
-  .ql-editor {
-    min-height: 850px;
-    padding: 3rem 2.75rem;
-    font-family: 'Lora', serif;
-    font-size: 16px;
-    line-height: 2;
-    color: #23283a;
-    background: transparent !important;
-    box-sizing: border-box;
-  }
-  .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
-  .ql-editor img {
-    display: block;
-    max-width: 100%;
-    margin: 0.5rem 0;
-    border-radius: 2px;
-  }
-
-  /* Ruled lines */
-  .editor-canvas-wrapper.ruled-paper {
-    background-image: repeating-linear-gradient(
-      to bottom,
-      #ffffff 0px,
-      #ffffff 31px,
-      #d4d9e2 31px,
-      #d4d9e2 32px
-    ) !important;
-    background-size: 100% 32px !important;
-  }
-
-  /* Red left physical margin */
-  .margin-line-indicator {
-    display: none;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 64px;
-    width: 2px;
-    background-color: #e78c8c;
-    z-index: 1;
-    pointer-events: none;
-  }
-  .editor-canvas-wrapper.ruled-margin .margin-line-indicator {
-    display: block;
-  }
-
-  /* Floating, Draggable Signature */
-  .floating-signature {
-    position: absolute;
-    border: 1px dashed var(--maroon-theme);
-    background: rgba(255, 255, 255, 0.4);
-    padding: 4px;
-    user-select: none;
-    cursor: move;
-    z-index: 100;
-    max-width: 320px;
-    max-height: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 3px;
-  }
-  .floating-signature img {
-    max-width: 100%;
-    max-height: 100%;
-    pointer-events: none;
-    display: block;
-  }
-  .floating-signature .sig-del-btn {
-    position: absolute;
-    top: -9px;
-    right: -9px;
-    background: var(--maroon-theme);
-    color: #fff;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    font-size: 11px;
-    line-height: 18px;
-    text-align: center;
-    cursor: pointer;
-    border: none;
-    padding: 0;
-  }
-  .floating-signature .sig-resize-handle {
-    position: absolute;
-    right: -4px;
-    bottom: -4px;
-    width: 9px;
-    height: 9px;
-    background: var(--maroon-theme);
-    cursor: se-resize;
-  }
-
-  /* Custom Toolbar Buttons */
-  .ql-signature::before {
-    content: '✍️ Sign';
-    font-family: var(--font-body, system-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-  .ql-custom-image::before {
-    content: '🖼️ Image';
-    font-family: var(--font-body, system-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  /* Font Families */
-  .ql-font-arial { font-family: Arial, sans-serif; }
-  .ql-font-georgia { font-family: Georgia, serif; }
-  .ql-font-lora { font-family: 'Lora', serif; }
-  .ql-font-playfair { font-family: 'Playfair Display', serif; }
-  .ql-font-caveat { font-family: 'Caveat', cursive; }
-  .ql-font-caveatbrush { font-family: 'Caveat Brush', cursive; }
-  .ql-font-kalam { font-family: 'Kalam', cursive; }
-  .ql-font-shadows { font-family: 'Shadows Into Light', cursive; }
-  .ql-font-indie { font-family: 'Indie Flower', cursive; }
-  .ql-font-patrick { font-family: 'Patrick Hand', cursive; }
-  .ql-font-handlee { font-family: 'Handlee', cursive; }
-  .ql-font-gochi { font-family: 'Gochi Hand', cursive; }
-  .ql-font-architects { font-family: 'Architects Daughter', cursive; }
-  .ql-font-covered { font-family: 'Covered By Your Grace', cursive; }
-  .ql-font-nanum { font-family: 'Nanum Pen Script', cursive; }
-  .ql-font-marker { font-family: 'Permanent Marker', cursive; }
-  .ql-font-rocksalt { font-family: 'Rock Salt', cursive; }
-  .ql-font-dancing { font-family: 'Dancing Script', cursive; }
-  .ql-font-sacramento { font-family: 'Sacramento', cursive; }
-  .ql-font-satisfy { font-family: 'Satisfy', cursive; }
-  .ql-font-pacifico { font-family: 'Pacifico', cursive; }
-  .ql-font-greatvibes { font-family: 'Great Vibes', cursive; }
-  .ql-font-allura { font-family: 'Allura', cursive; }
-  .ql-font-yellowtail { font-family: 'Yellowtail', cursive; }
-  .ql-font-homemade { font-family: 'Homemade Apple', cursive; }
-
-  .status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.78rem;
-    color: var(--text-soft);
-    padding: 0.6rem 0.5rem;
-    border-top: 1px solid var(--border-color);
-  }
-
-  /* Modals */
-  .sig-modal, .pdf-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(20,20,25,0.65);
-    z-index: 1200;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-  }
-  .sig-modal-inner, .pdf-modal-inner {
-    background: #fff;
-    border-radius: 8px;
-    width: 100%;
-    max-width: 600px;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 18px 40px rgba(0,0,0,0.3);
-  }
-  .pdf-modal-inner { max-width: 800px; height: 90vh; }
-
-  .sig-modal-header, .pdf-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1.1rem;
-    border-bottom: 1px solid #e2e4e9;
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1rem;
-    color: #23283a;
-  }
-
-  .sig-modal-body { padding: 1.25rem; overflow-y: auto; }
-  .sig-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }
-  .sig-card {
-    border: 1px solid #dcd6c8;
-    border-radius: 4px;
-    width: 100px;
-    height: 55px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    background: #fafafa;
-    overflow: hidden;
-  }
-  .sig-card:hover {
-    border-color: var(--maroon-theme);
-    box-shadow: 0 0 0 2px rgba(122,35,49,0.2);
-  }
-  .sig-card img { max-width: 100%; max-height: 100%; object-fit: contain; }
-
-  #pdfPreviewPages {
-    flex: 1;
-    overflow-y: auto;
-    background: #56575c;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-  }
-  #pdfPreviewPages img {
-    max-width: 100%;
-    width: 580px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
-    display: block;
-  }
-  .pdf-page-label { color: #eee; font-size: 0.72rem; margin-bottom: -0.6rem; }
-
-  @media print {
-    body * { visibility: hidden; }
-    .editor-canvas-wrapper, .editor-canvas-wrapper * { visibility: visible; }
-    .editor-canvas-wrapper {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100% !important;
-      border: none !important;
-      box-shadow: none !important;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arzi — Write Freely (Pro)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Playfair+Display:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- handwriting fonts (large set) -->
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Caveat+Brush&family=Kalam:wght@400;700&family=Shadows+Into+Light&family=Indie+Flower&family=Patrick+Hand&family=Handlee&family=Gochi+Hand&family=Architects+Daughter&family=Covered+By+Your+Grace&family=Nanum+Pen+Script&family=Permanent+Marker&family=Rock+Salt&family=Dancing+Script:wght@400;600;700&family=Sacramento&family=Satisfy&family=Pacifico&family=Great+Vibes&family=Allura&family=Yellowtail&family=Homemade+Apple&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
+  <style>
+    /* ---- base variables & dark mode (preserved) ---- */
+    :root {
+      --bg-page: #fbf9f4; --bg-surface: #f4efe4; --bg-card: #ffffff;
+      --border-color: #dcd6c8; --text-color: #23283a; --text-soft: #636b78;
+      --maroon-theme: #7a2331; --maroon-hover: #5d1a24;
+      --line-grid: #d4d9e2; --margin-rule: #e78c8c;
+      --paper-texture: none;
+      --ink-weight-variation: 0;
+      --ink-baseline-jitter: 0deg;
     }
-    .floating-signature { border: none !important; }
-    .sig-del-btn, .sig-resize-handle { display: none !important; }
-  }
-</style>
+    body.dark-mode {
+      --bg-page: #15161a; --bg-surface: #1e2025; --bg-card: #282a30;
+      --border-color: #3b3f4a; --text-color: #e6e8ee; --text-soft: #9aa1b0;
+      --maroon-theme: #a83849; --maroon-hover: #c4475b;
+      --line-grid: #383c48; --margin-rule: #69323a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg-page); color: var(--text-color);
+      margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif;
+      transition: background 0.25s, color 0.25s;
+    }
+    /* ---- header / toolbar ---- */
+    .editor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border-color);
+      background: var(--bg-surface); flex-wrap: wrap; gap: 0.5rem;
+    }
+    .header-left { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+    .theme-toggle-btn {
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: 20px; padding: 0.25rem 0.65rem; font-size: 0.78rem;
+      font-weight: 600; cursor: pointer; display: inline-flex; align-items: center;
+      gap: 0.3rem; color: var(--text-color);
+    }
+    .back-link, .template-nav-link {
+      font-size: 0.85rem; color: var(--text-soft); text-decoration: none;
+      font-weight: 500;
+    }
+    .template-nav-link { color: var(--maroon-theme); font-weight: 600; border-left: 1px solid var(--border-color); padding-left: 0.85rem; }
+    .back-link:hover, .template-nav-link:hover { color: var(--maroon-hover); text-decoration: underline; }
+    .export-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .export-actions select, .export-actions button { padding: 0.35rem 0.7rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.8rem; background: var(--bg-card); color: var(--text-color); }
+    .btn { font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-color); cursor: pointer; }
+    .btn.primary { background: var(--maroon-theme); border-color: var(--maroon-theme); color: #fff; }
+    .btn.primary:hover { background: var(--maroon-hover); }
+
+    /* ---- editor shell & page container ---- */
+    .editor-shell { display: flex; flex-direction: column; align-items: center; padding: 1rem 1rem 2rem; }
+    .page-container { width: 100%; max-width: 820px; }
+
+    /* ---- toolbar customization ---- */
+    #toolbar {
+      background: var(--bg-surface); border: 1px solid var(--border-color);
+      border-bottom: none; border-radius: 6px 6px 0 0;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem;
+      padding: 0.4rem 0.5rem;
+    }
+    .ql-toolbar.ql-snow { border: 1px solid var(--border-color); background: var(--bg-surface); padding: 0.4rem; }
+    .ql-formats { display: inline-flex; align-items: center; gap: 0.1rem; }
+    .word-controls, .paper-style-group {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding-left: 0.4rem; border-left: 1px solid var(--border-color); margin-left: 0.3rem;
+      font-size: 0.75rem; font-weight: 600; color: var(--text-soft);
+    }
+    .word-ctrl-item { display: inline-flex; align-items: center; gap: 0.15rem; }
+    .word-ctrl-item input[type="number"] { width: 44px; padding: 0.15rem; font-size: 0.7rem; border: 1px solid var(--border-color); border-radius: 3px; background: var(--bg-card); color: var(--text-color); }
+    .paper-style-group label { display: inline-flex; align-items: center; gap: 0.15rem; cursor: pointer; }
+
+    /* ---- canvas / paper ---- */
+    .editor-canvas-wrapper {
+      position: relative; width: 100%; background-color: #ffffff;
+      border: 1px solid var(--border-color); border-radius: 0 0 6px 6px;
+      box-shadow: 0 12px 28px -14px rgba(35,40,58,0.22);
+      overflow: visible; /* allow page shadows */
+    }
+    #editor-body { background: transparent !important; border: none !important; min-height: 850px; position: relative; z-index: 2; }
+    .ql-container.ql-snow { border: none !important; background: transparent !important; }
+    .ql-editor {
+      min-height: 850px; padding: 3rem 2.75rem;
+      font-family: 'Lora', serif; font-size: 16px; line-height: 2;
+      color: #23283a; background: transparent !important;
+      box-sizing: border-box;
+    }
+    .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
+    .ql-editor img { display: block; max-width: 100%; margin: 0.5rem 0; border-radius: 2px; }
+
+    /* ruled paper & margin */
+    .editor-canvas-wrapper.ruled-paper {
+      background-image: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
+      background-size: 100% 32px !important;
+    }
+    .margin-line-indicator {
+      display: none; position: absolute; top: 0; bottom: 0; left: 64px;
+      width: 2px; background-color: #e78c8c; z-index: 1; pointer-events: none;
+    }
+    .editor-canvas-wrapper.ruled-margin .margin-line-indicator { display: block; }
+
+    /* floating signature (preserved) */
+    .floating-signature {
+      position: absolute; border: 1px dashed var(--maroon-theme);
+      background: rgba(255,255,255,0.4); padding: 4px; user-select: none;
+      cursor: move; z-index: 100; max-width: 320px; max-height: 180px;
+      display: flex; align-items: center; justify-content: center; border-radius: 3px;
+    }
+    .floating-signature img { max-width: 100%; max-height: 100%; pointer-events: none; display: block; }
+    .floating-signature .sig-del-btn {
+      position: absolute; top: -9px; right: -9px; background: var(--maroon-theme);
+      color: #fff; width: 18px; height: 18px; border-radius: 50%;
+      font-size: 11px; line-height: 18px; text-align: center; cursor: pointer;
+      border: none; padding: 0;
+    }
+    .floating-signature .sig-resize-handle {
+      position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px;
+      background: var(--maroon-theme); cursor: se-resize;
+    }
+
+    /* custom quill buttons */
+    .ql-signature::before { content: '✍️ Sign'; font-size: 0.78rem; font-weight: 600; }
+    .ql-custom-image::before { content: '🖼️ Image'; font-size: 0.78rem; font-weight: 600; }
+
+    /* status bar */
+    .status-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.78rem; color: var(--text-soft);
+      padding: 0.6rem 0.5rem; border-top: 1px solid var(--border-color);
+    }
+
+    /* ---- modals (sig, pdf, drafts) ---- */
+    .sig-modal, .pdf-modal, .draft-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(20,20,25,0.65); z-index: 1200;
+      align-items: center; justify-content: center; padding: 1.25rem;
+    }
+    .sig-modal-inner, .pdf-modal-inner, .draft-modal-inner {
+      background: #fff; border-radius: 8px; width: 100%; max-width: 600px;
+      max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.3);
+    }
+    .pdf-modal-inner { max-width: 800px; height: 90vh; }
+    .sig-modal-header, .pdf-modal-header, .draft-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.85rem 1.1rem; border-bottom: 1px solid #e2e4e9;
+      font-family: 'Playfair Display', Georgia, serif; font-size: 1rem;
+      color: #23283a;
+    }
+    .sig-modal-body, .draft-modal-body { padding: 1.25rem; overflow-y: auto; }
+    .sig-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }
+    .sig-card {
+      border: 1px solid #dcd6c8; border-radius: 4px; width: 100px; height: 55px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      background: #fafafa; overflow: hidden;
+    }
+    .sig-card:hover { border-color: var(--maroon-theme); box-shadow: 0 0 0 2px rgba(122,35,49,0.2); }
+    .sig-card img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    #pdfPreviewPages {
+      flex: 1; overflow-y: auto; background: #56575c; padding: 1.25rem;
+      display: flex; flex-direction: column; align-items: center; gap: 1rem;
+    }
+    #pdfPreviewPages img { max-width: 100%; width: 580px; box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    .pdf-page-label { color: #eee; font-size: 0.72rem; margin-bottom: -0.6rem; }
+
+    /* draft list */
+    .draft-item {
+      padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer;
+    }
+    .draft-item:hover { background: var(--bg-surface); }
+    .draft-item .draft-meta { font-size: 0.8rem; color: var(--text-soft); }
+
+    /* paper texture classes */
+    .paper-ivory .ql-editor { background: #fcf8ef; }
+    .paper-parchment .ql-editor { background: #f3ead8; }
+    .paper-scanner .ql-editor { background: #f5f2ec; }
+    .paper-scanner .editor-canvas-wrapper { filter: contrast(1.02) brightness(0.98); }
+
+    /* page separation (multi-page visual) */
+    .page-sheet {
+      position: relative; background: #fff; margin-bottom: 2px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .page-sheet::after {
+      content: ''; position: absolute; bottom: -6px; left: 10%; width: 80%;
+      height: 6px; background: rgba(0,0,0,0.03); filter: blur(2px);
+      pointer-events: none;
+    }
+
+    /* responsive */
+    @media print {
+      body * { visibility: hidden; }
+      .editor-canvas-wrapper, .editor-canvas-wrapper * { visibility: visible; }
+      .editor-canvas-wrapper { position: absolute; left: 0; top: 0; width: 100% !important; border: none !important; box-shadow: none !important; }
+      .floating-signature { border: none !important; }
+      .sig-del-btn, .sig-resize-handle { display: none !important; }
+    }
+  </style>
 </head>
 <body>
-
   <div class="editor-header">
     <div class="header-left">
-      <button type="button" class="theme-toggle-btn" id="btnThemeToggle" title="Toggle Light / Dark Mode">
-        <span id="themeIcon">🌙</span> <span id="themeText">Dark</span>
-      </button>
-      <a class="back-link" href="index.html">&larr; Back</a>
-      <a class="template-nav-link" href="template.html" title="Open formatted templates">Pre-formatted Leave Form &rarr;</a>
+      <button class="theme-toggle-btn" id="btnThemeToggle"><span id="themeIcon">🌙</span> <span id="themeText">Dark</span></button>
+      <a class="back-link" href="#">← Back</a>
+      <a class="template-nav-link" href="#">Pre-formatted Leave Form →</a>
+      <button class="btn" id="btnDrafts" style="font-size:0.75rem;">📂 Drafts</button>
     </div>
     <div class="export-actions">
-      <select id="pageSize">
-        <option value="a4" data-ratio="0.7071" selected>A4</option>
-        <option value="letter" data-ratio="0.7742">Letter</option>
-        <option value="legal" data-ratio="0.6067">Legal</option>
-        <option value="a5" data-ratio="0.7048">A5</option>
-      </select>
-      <button class="btn" id="export-image">Save as Image</button>
-      <button class="btn primary" id="export-pdf">Save as PDF</button>
+      <select id="pageSize"><option value="a4" data-ratio="0.7071" selected>A4</option><option value="letter" data-ratio="0.7742">Letter</option><option value="legal" data-ratio="0.6067">Legal</option><option value="a5" data-ratio="0.7048">A5</option></select>
+      <button class="btn" id="export-image">Image</button>
+      <button class="btn primary" id="export-pdf">PDF</button>
+      <button class="btn" id="export-text">TXT</button>
     </div>
   </div>
 
   <div class="editor-shell">
     <div class="page-container">
+      <!-- toolbar -->
       <div id="toolbar">
         <span class="ql-formats">
-          <select class="ql-header">
-            <option selected>Normal Text</option>
-            <option value="1">Heading 1</option>
-            <option value="2">Heading 2</option>
-            <option value="3">Heading 3</option>
-          </select>
+          <select class="ql-header"><option selected>Normal</option><option value="1">H1</option><option value="2">H2</option><option value="3">H3</option></select>
           <select class="ql-font">
-            <option value="lora" selected>Lora</option>
-            <option value="arial">Arial</option>
-            <option value="georgia">Georgia</option>
-            <option value="playfair">Playfair</option>
-            <option value="caveat">Caveat</option>
-            <option value="kalam">Kalam</option>
-            <option value="shadows">Shadows</option>
-            <option value="indie">Indie Flower</option>
-            <option value="patrick">Patrick Hand</option>
-            <option value="handlee">Handlee</option>
-            <option value="gochi">Gochi Hand</option>
-            <option value="architects">Architects</option>
-            <option value="covered">Covered Grace</option>
-            <option value="nanum">Nanum Pen</option>
-            <option value="marker">Marker</option>
-            <option value="rocksalt">Rock Salt</option>
-            <option value="dancing">Dancing Script</option>
-            <option value="sacramento">Sacramento</option>
-            <option value="satisfy">Satisfy</option>
-            <option value="pacifico">Pacifico</option>
-            <option value="greatvibes">Great Vibes</option>
-            <option value="allura">Allura</option>
-            <option value="yellowtail">Yellowtail</option>
-            <option value="homemade">Homemade Apple</option>
+            <option value="lora" selected>Lora</option><option value="arial">Arial</option><option value="georgia">Georgia</option>
+            <option value="playfair">Playfair</option><option value="caveat">Caveat</option><option value="kalam">Kalam</option>
+            <option value="shadows">Shadows</option><option value="indie">Indie</option><option value="patrick">Patrick</option>
+            <option value="handlee">Handlee</option><option value="gochi">Gochi</option><option value="architects">Architects</option>
+            <option value="covered">Covered</option><option value="nanum">Nanum</option><option value="marker">Marker</option>
+            <option value="rocksalt">Rock Salt</option><option value="dancing">Dancing</option><option value="sacramento">Sacramento</option>
+            <option value="satisfy">Satisfy</option><option value="pacifico">Pacifico</option><option value="greatvibes">Great Vibes</option>
+            <option value="allura">Allura</option><option value="yellowtail">Yellowtail</option><option value="homemade">Homemade</option>
             <option value="caveatbrush">Caveat Brush</option>
           </select>
-          <select class="ql-size">
-            <option value="12px">12px</option>
-            <option value="14px">14px</option>
-            <option value="16px" selected>16px</option>
-            <option value="18px">18px</option>
-            <option value="20px">20px</option>
-            <option value="24px">24px</option>
-            <option value="28px">28px</option>
-            <option value="32px">32px</option>
+          <select class="ql-size"><option value="12px">12</option><option value="14px">14</option><option value="16px" selected>16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="28px">28</option><option value="32px">32</option></select>
+        </span>
+        <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-strike"></button></span>
+        <span class="ql-formats">
+          <select class="ql-color"><option value="#23283a" selected>Dark</option><option value="#003366">Blue</option><option value="#7a2331">Maroon</option><option value="#1e4620">Green</option></select>
+          <select class="ql-background"><option selected>Transparent</option><option value="#fff9c4">Yellow</option><option value="#c8e6c9">Green</option><option value="#ffcdd2">Pink</option></select>
+        </span>
+        <span class="ql-formats"><button class="ql-align" value=""></button><button class="ql-align" value="center"></button><button class="ql-align" value="right"></button><button class="ql-align" value="justify"></button></span>
+        <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
+        <span class="ql-formats">
+          <button class="ql-custom-image" id="btnInsertImage"></button>
+          <button class="ql-signature" id="btnInsertSig"></button>
+          <button class="ql-clean"></button>
+        </span>
+        <!-- new snippet dropdown -->
+        <span class="ql-formats">
+          <select id="snippetSelect" style="font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-card);color:var(--text-color);">
+            <option value="">📎 Snippet</option>
+            <option value="addressee">To, The Director / Principal...</option>
+            <option value="subject">Subject: ...</option>
+            <option value="through">Through Proper Channel</option>
+            <option value="enclosure">Encl: 1. ..., 2. ...</option>
           </select>
         </span>
-
+        <!-- table insert -->
         <span class="ql-formats">
-          <button class="ql-bold"></button>
-          <button class="ql-italic"></button>
-          <button class="ql-underline"></button>
-          <button class="ql-strike"></button>
+          <button class="btn" id="btnInsertTable" style="font-size:0.7rem;padding:0.1rem 0.4rem;">📊 Table</button>
         </span>
-
+        <!-- stamp tool -->
         <span class="ql-formats">
-          <select class="ql-color">
-            <option value="#23283a" selected>Dark Ink</option>
-            <option value="#003366">Royal Blue</option>
-            <option value="#1a365d">Gel Pen Blue</option>
-            <option value="#7a2331">Formal Maroon</option>
-            <option value="#8b0000">Deep Red</option>
-            <option value="#1e4620">Official Green</option>
-          </select>
-          <select class="ql-background">
-            <option selected>Transparent</option>
-            <option value="#fff9c4">Yellow Highlight</option>
-            <option value="#c8e6c9">Green Highlight</option>
-            <option value="#ffcdd2">Pink Highlight</option>
-            <option value="#e1f5fe">Blue Highlight</option>
-          </select>
+          <button class="btn" id="btnStamp" style="font-size:0.7rem;padding:0.1rem 0.4rem;">🏛️ Stamp</button>
         </span>
-
-        <span class="ql-formats">
-          <button class="ql-align" value=""></button>
-          <button class="ql-align" value="center"></button>
-          <button class="ql-align" value="right"></button>
-          <button class="ql-align" value="justify"></button>
-        </span>
-
-        <span class="ql-formats">
-          <button class="ql-list" value="ordered"></button>
-          <button class="ql-list" value="bullet"></button>
-          <button class="ql-indent" value="-1"></button>
-          <button class="ql-indent" value="+1"></button>
-        </span>
-
-        <span class="ql-formats">
-          <button type="button" class="ql-custom-image" id="btnInsertImage" title="Insert Picture/Image"></button>
-          <button type="button" class="ql-signature" id="btnInsertSig" title="Insert Draggable Signature"></button>
-          <button class="ql-clean" title="Clear Formatting"></button>
-        </span>
-
         <div class="word-controls">
-          <div class="word-ctrl-item" title="Line Spacing (Line-Height)">
-            <span>Line:</span>
-            <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0">
-          </div>
-          <div class="word-ctrl-item" title="Letter Spacing">
-            <span>Spacing:</span>
-            <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0">
-          </div>
+          <span class="word-ctrl-item">Line: <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0"></span>
+          <span class="word-ctrl-item">Space: <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0"></span>
         </div>
-
         <div class="paper-style-group">
           <label><input type="checkbox" id="toggleRuled" checked> Lines</label>
           <label><input type="checkbox" id="toggleMargin" checked> Margin</label>
+          <label>Ink <input type="checkbox" id="toggleInkRealism"> Realism</label>
+          <select id="paperTextureSelect" style="font-size:0.7rem;padding:0.1rem 0.3rem;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-card);color:var(--text-color);">
+            <option value="plain">Plain</option><option value="ivory">Ivory</option><option value="parchment">Parchment</option><option value="scanner">Scanner</option>
+          </select>
+          <label>Custom Font <input type="file" id="customFontUpload" accept=".ttf,.otf" style="max-width:100px;"></label>
         </div>
       </div>
 
+      <!-- canvas wrapper -->
       <div class="editor-canvas-wrapper ruled-paper ruled-margin" id="canvasWrapper">
         <div class="margin-line-indicator" id="marginLine"></div>
         <div id="editor-body"></div>
@@ -601,459 +297,315 @@
 
       <div class="status-bar">
         <span id="pageStats">Page 1 of 1</span>
-        <span id="textStats">0 words &bull; 0 characters</span>
+        <span id="textStats">0 words • 0 characters</span>
       </div>
     </div>
   </div>
 
+  <!-- hidden inputs -->
   <input type="file" id="generalImageInput" accept="image/*" style="display:none;">
+  <input type="file" id="stampImageInput" accept="image/*" style="display:none;">
 
-  <!-- Signature Selector Modal -->
-  <div class="sig-modal" id="sigPickerModal">
-    <div class="sig-modal-inner">
-      <div class="sig-modal-header">
-        <span>Insert Signature (Draggable / Tight)</span>
-        <button type="button" class="btn" id="sigPickerClose">&times;</button>
-      </div>
-      <div class="sig-modal-body">
-        <p style="font-size:0.8rem; color:var(--text-soft); margin-top:0;">
-          Select a signature to place it as a draggable element anywhere on your application:
-        </p>
-        <div class="sig-grid" id="sigModalGrid"></div>
-        <div style="margin-top:1.25rem; display:flex; justify-content:space-between; align-items:center;">
-          <a href="template.html" class="btn-small" style="text-decoration:none; font-size:0.8rem; color:var(--maroon-theme); font-weight:600;">
-            + Upload new signature in Template Form
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Signature Modal -->
+  <div class="sig-modal" id="sigPickerModal"><div class="sig-modal-inner"><div class="sig-modal-header"><span>Insert Signature</span><button class="btn" id="sigPickerClose">&times;</button></div><div class="sig-modal-body"><div class="sig-grid" id="sigModalGrid"></div></div></div></div>
 
-  <!-- PDF Preview Modal -->
-  <div class="pdf-modal" id="pdfModal">
-    <div class="pdf-modal-inner">
-      <div class="pdf-modal-header">
-        <span>PDF preview</span>
-        <div style="display:flex; gap:0.5rem;">
-          <button type="button" class="btn primary" id="pdfModalDownload">Download PDF</button>
-          <button type="button" class="btn" id="pdfModalClose">Close</button>
-        </div>
-      </div>
-      <div id="pdfPreviewPages"></div>
-    </div>
-  </div>
+  <!-- PDF Modal -->
+  <div class="pdf-modal" id="pdfModal"><div class="pdf-modal-inner"><div class="pdf-modal-header"><span>PDF preview</span><div><button class="btn primary" id="pdfModalDownload">Download</button><button class="btn" id="pdfModalClose">Close</button></div></div><div id="pdfPreviewPages"></div></div></div>
+
+  <!-- Drafts Modal -->
+  <div class="draft-modal" id="draftModal"><div class="draft-modal-inner"><div class="draft-modal-header"><span>📂 Recent Drafts</span><button class="btn" id="draftModalClose">&times;</button></div><div class="draft-modal-body" id="draftList"></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
   <script>
-    const el = id => document.getElementById(id);
+    (function(){
+      const el = id => document.getElementById(id);
+      // ---- theme ----
+      function initTheme(){ const saved=localStorage.getItem('arzi_editor_theme')||'light'; if(saved==='dark'){ document.body.classList.add('dark-mode'); el('themeIcon').textContent='☀️'; el('themeText').textContent='Light'; } }
+      el('btnThemeToggle').addEventListener('click',()=>{ const isDark=document.body.classList.toggle('dark-mode'); localStorage.setItem('arzi_editor_theme',isDark?'dark':'light'); el('themeIcon').textContent=isDark?'☀️':'🌙'; el('themeText').textContent=isDark?'Light':'Dark'; });
+      initTheme();
 
-    /* ---------- Light / Dark Mode Toggle ---------- */
-    function initTheme() {
-      const savedTheme = localStorage.getItem('arzi_editor_theme') || 'light';
-      if (savedTheme === 'dark') {
-        document.body.classList.add('dark-mode');
-        el('themeIcon').textContent = '☀️';
-        el('themeText').textContent = 'Light';
+      // ---- Quill setup ----
+      const Font = Quill.import('formats/font');
+      Font.whitelist = ['arial','georgia','lora','playfair','caveat','caveatbrush','kalam','shadows','indie','patrick','handlee','gochi','architects','covered','nanum','marker','rocksalt','dancing','sacramento','satisfy','pacifico','greatvibes','allura','yellowtail','homemade'];
+      Quill.register(Font, true);
+      const Size = Quill.import('attributors/style/size');
+      Size.whitelist = ['12px','14px','16px','18px','20px','24px','28px','32px'];
+      Quill.register(Size, true);
+      const quill = new Quill('#editor-body', { theme: 'snow', modules: { toolbar: '#toolbar' }, placeholder: 'Start writing…' });
+
+      // ---- helpers ----
+      function getEditorEl(){ return document.querySelector('#editor-body .ql-editor'); }
+
+      // ---- line height / letter spacing ----
+      el('lineHeightInput').addEventListener('input', e=>{ const v=parseFloat(e.target.value)||2.0; getEditorEl().style.lineHeight=v; updateRuledBackground(); });
+      el('letterSpacingInput').addEventListener('input', e=>{ getEditorEl().style.letterSpacing=(parseFloat(e.target.value)||0)+'px'; });
+
+      function updateRuledBackground(){
+        if(!el('toggleRuled').checked) return;
+        const lh=parseFloat(el('lineHeightInput').value)||2.0;
+        const rowHeight=Math.round(16*lh);
+        const wrapper=el('canvasWrapper');
+        wrapper.style.backgroundImage=`repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+        wrapper.style.backgroundSize=`100% ${rowHeight}px`;
       }
-    }
-    el('btnThemeToggle').addEventListener('click', () => {
-      const isDark = document.body.classList.toggle('dark-mode');
-      localStorage.setItem('arzi_editor_theme', isDark ? 'dark' : 'light');
-      el('themeIcon').textContent = isDark ? '☀️' : '🌙';
-      el('themeText').textContent = isDark ? 'Light' : 'Dark';
-    });
-    initTheme();
 
-    /* ---------- Quill Editor Configuration ---------- */
-    const Font = Quill.import('formats/font');
-    Font.whitelist = [
-      'arial', 'georgia', 'lora', 'playfair', 'caveat', 'caveatbrush', 'kalam',
-      'shadows', 'indie', 'patrick', 'handlee', 'gochi', 'architects', 'covered',
-      'nanum', 'marker', 'rocksalt', 'dancing', 'sacramento', 'satisfy',
-      'pacifico', 'greatvibes', 'allura', 'yellowtail', 'homemade'
-    ];
-    Quill.register(Font, true);
+      // ---- ruled / margin ----
+      el('toggleRuled').addEventListener('change',e=>{ el('canvasWrapper').classList.toggle('ruled-paper',e.target.checked); if(!e.target.checked) el('canvasWrapper').style.backgroundImage='none'; else updateRuledBackground(); });
+      el('toggleMargin').addEventListener('change',e=>{ el('canvasWrapper').classList.toggle('ruled-margin',e.target.checked); });
 
-    const Size = Quill.import('attributors/style/size');
-    Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
-    Quill.register(Size, true);
+      // ---- ink realism (experimental) ----
+      el('toggleInkRealism').addEventListener('change', e=>{
+        const editor = getEditorEl();
+        if(e.target.checked){
+          editor.style.fontWeight = '450'; // slight variation
+          editor.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+0.3+'px';
+          editor.style.transform = 'rotate(0.3deg)';
+        } else {
+          editor.style.fontWeight = '';
+          editor.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+'px';
+          editor.style.transform = '';
+        }
+      });
 
-    const quill = new Quill('#editor-body', {
-      theme: 'snow',
-      modules: { toolbar: '#toolbar' },
-      placeholder: 'Start writing your application or letter here…'
-    });
+      // ---- paper texture ----
+      el('paperTextureSelect').addEventListener('change', e=>{
+        const wrapper = el('canvasWrapper');
+        wrapper.className = wrapper.className.split(' ').filter(c=>!c.startsWith('paper-')).join(' ');
+        if(e.target.value!=='plain') wrapper.classList.add('paper-'+e.target.value);
+      });
 
-    /* ---------- Insert General Image ---------- */
-    el('btnInsertImage').addEventListener('click', () => {
-      el('generalImageInput').click();
-    });
+      // ---- custom font upload ----
+      el('customFontUpload').addEventListener('change', async e=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        try {
+          const font = new FontFace('customHand', await file.arrayBuffer());
+          await font.load();
+          document.fonts.add(font);
+          const sel = document.querySelector('.ql-font');
+          const opt = document.createElement('option');
+          opt.value = 'customHand';
+          opt.textContent = '✏️ Custom';
+          sel.appendChild(opt);
+          sel.value = 'customHand';
+          quill.format('font', 'customHand');
+          // add style
+          const style = document.createElement('style');
+          style.textContent = `.ql-font-customHand { font-family: 'customHand', cursive; }`;
+          document.head.appendChild(style);
+        } catch(err){ alert('Font load failed: '+err.message); }
+      });
 
-    el('generalImageInput').addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (!file || !file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = evt => {
-        const range = quill.getSelection(true);
-        quill.insertEmbed(range.index, 'image', evt.target.result);
-        quill.setSelection(range.index + 1);
-      };
-      reader.readAsDataURL(file);
-      e.target.value = '';
-    });
+      // ---- image insert ----
+      el('btnInsertImage').addEventListener('click',()=>el('generalImageInput').click());
+      el('generalImageInput').addEventListener('change', e=>{
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=ev=>{ const range=quill.getSelection(true); quill.insertEmbed(range.index,'image',ev.target.result); quill.setSelection(range.index+1); };
+        reader.readAsDataURL(file); e.target.value='';
+      });
 
-    /* ---------- Line Height & Letter Spacing Controls ---------- */
-    el('lineHeightInput').addEventListener('input', e => {
-      const val = parseFloat(e.target.value) || 2.0;
-      document.querySelector('#editor-body .ql-editor').style.lineHeight = val;
-      updateRuledBackground();
-    });
+      // ---- signature vault (preserved) ----
+      const DB_NAME='ArziSignaturesDB', STORE_NAME='signatures';
+      function openDatabase(){ return new Promise((resolve,reject)=>{ const req=indexedDB.open(DB_NAME,1); req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'}); }; req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error); }); }
+      function isValidSignatureDataUrl(d){ return typeof d==='string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(d); }
+      async function loadSignaturesFromVault(){ try { const db=await openDatabase(); return new Promise(resolve=>{ const tx=db.transaction(STORE_NAME,'readonly'); const store=tx.objectStore(STORE_NAME); const req=store.getAll(); req.onsuccess=()=>{ const list=(req.result||[]).map(i=>i.data).filter(isValidSignatureDataUrl); resolve(list.length?list:fallbackLocalSignatures()); }; req.onerror=()=>resolve(fallbackLocalSignatures()); }); } catch { return fallbackLocalSignatures(); } }
+      function fallbackLocalSignatures(){ try { const list=JSON.parse(localStorage.getItem('arzi_signatures_v1'))||[]; return list.filter(isValidSignatureDataUrl); } catch { return []; } }
 
-    el('letterSpacingInput').addEventListener('input', e => {
-      const val = parseFloat(e.target.value) || 0;
-      document.querySelector('#editor-body .ql-editor').style.letterSpacing = val + 'px';
-    });
+      function createFloatingSignature(dataUrl){
+        if(!isValidSignatureDataUrl(dataUrl)) return;
+        const wrapper=el('canvasWrapper');
+        const sigBox=document.createElement('div'); sigBox.className='floating-signature'; sigBox.style.left='320px'; sigBox.style.top='480px'; sigBox.style.width='140px';
+        const img=document.createElement('img'); img.src=dataUrl; sigBox.appendChild(img);
+        const delBtn=document.createElement('button'); delBtn.className='sig-del-btn'; delBtn.innerHTML='&times;'; delBtn.addEventListener('click',e=>{ e.stopPropagation(); wrapper.removeChild(sigBox); }); sigBox.appendChild(delBtn);
+        const resizeHandle=document.createElement('div'); resizeHandle.className='sig-resize-handle'; sigBox.appendChild(resizeHandle);
+        let isDragging=false,startX,startY,initLeft,initTop; sigBox.addEventListener('mousedown',e=>{ if(e.target===delBtn||e.target===resizeHandle)return; isDragging=true; startX=e.clientX; startY=e.clientY; initLeft=sigBox.offsetLeft; initTop=sigBox.offsetTop; e.preventDefault(); });
+        let isResizing=false,initW,initMouseX; resizeHandle.addEventListener('mousedown',e=>{ isResizing=true; initW=sigBox.offsetWidth; initMouseX=e.clientX; e.stopPropagation(); e.preventDefault(); });
+        window.addEventListener('mousemove',e=>{ if(isDragging){ const dx=e.clientX-startX, dy=e.clientY-startY; sigBox.style.left=Math.max(0,initLeft+dx)+'px'; sigBox.style.top=Math.max(0,initTop+dy)+'px'; } else if(isResizing){ const dw=e.clientX-initMouseX; sigBox.style.width=Math.max(60,initW+dw)+'px'; } });
+        window.addEventListener('mouseup',()=>{ isDragging=false; isResizing=false; });
+        wrapper.appendChild(sigBox);
+      }
 
-    function updateRuledBackground() {
-      if (!el('toggleRuled').checked) return;
-      const lh = parseFloat(el('lineHeightInput').value) || 2.0;
-      const rowHeight = Math.round(16 * lh);
-      const wrapper = el('canvasWrapper');
-      wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px)`;
-      wrapper.style.backgroundSize = `100% ${rowHeight}px`;
-    }
+      async function openSignaturePicker(){
+        const signatures=await loadSignaturesFromVault();
+        const grid=el('sigModalGrid'); grid.innerHTML='';
+        if(signatures.length===0){ grid.innerHTML='<p style="color:#888;">No signatures in vault.</p>'; }
+        else { signatures.forEach(dataUrl=>{ const card=document.createElement('div'); card.className='sig-card'; const img=document.createElement('img'); img.src=dataUrl; card.appendChild(img); card.addEventListener('click',()=>{ createFloatingSignature(dataUrl); el('sigPickerModal').style.display='none'; }); grid.appendChild(card); }); }
+        el('sigPickerModal').style.display='flex';
+      }
+      el('btnInsertSig').addEventListener('click', openSignaturePicker);
+      el('sigPickerClose').addEventListener('click',()=>{ el('sigPickerModal').style.display='none'; });
 
-    /* ---------- Ruled Lines & Margins Controls ---------- */
-    el('toggleRuled').addEventListener('change', e => {
-      el('canvasWrapper').classList.toggle('ruled-paper', e.target.checked);
-      if (!e.target.checked) el('canvasWrapper').style.backgroundImage = 'none';
-      else updateRuledBackground();
-    });
-    el('toggleMargin').addEventListener('change', e => {
-      el('canvasWrapper').classList.toggle('ruled-margin', e.target.checked);
-    });
-
-    /* ---------- Shared IndexedDB Signature Vault Integration ---------- */
-    const DB_NAME = 'ArziSignaturesDB';
-    const STORE_NAME = 'signatures';
-
-    function openDatabase() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, 1);
-        req.onupgradeneeded = e => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          }
+      // ---- stamp tool ----
+      el('btnStamp').addEventListener('click',()=>{ el('stampImageInput').click(); });
+      el('stampImageInput').addEventListener('change', e=>{
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=ev=>{
+          const wrapper=el('canvasWrapper');
+          const stamp=document.createElement('div');
+          stamp.style.cssText='position:absolute; left:100px; top:200px; width:120px; height:120px; border-radius:50%; border:2px solid #7a2331; background:rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; z-index:90; cursor:move; overflow:hidden;';
+          const img=document.createElement('img'); img.src=ev.target.result; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='contain';
+          stamp.appendChild(img);
+          // opacity slider
+          const slider=document.createElement('input'); slider.type='range'; slider.min='0.2'; slider.max='1'; slider.step='0.05'; slider.value='0.8'; slider.style.position='absolute'; slider.style.bottom='-20px'; slider.style.width='80px';
+          slider.addEventListener('input',()=>{ stamp.style.opacity=slider.value; });
+          stamp.appendChild(slider);
+          // draggable
+          let isDrag=false,sx,sy,ix,iy;
+          stamp.addEventListener('mousedown',e=>{ if(e.target===slider)return; isDrag=true; sx=e.clientX; sy=e.clientY; ix=stamp.offsetLeft; iy=stamp.offsetTop; e.preventDefault(); });
+          window.addEventListener('mousemove',e=>{ if(isDrag){ stamp.style.left=Math.max(0,ix+e.clientX-sx)+'px'; stamp.style.top=Math.max(0,iy+e.clientY-sy)+'px'; } });
+          window.addEventListener('mouseup',()=>{ isDrag=false; });
+          wrapper.appendChild(stamp);
         };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        reader.readAsDataURL(file); e.target.value='';
       });
-    }
 
-    function isValidSignatureDataUrl(dataUrl) {
-      if (typeof dataUrl !== 'string') return false;
-      return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl);
-    }
+      // ---- snippet insert ----
+      el('snippetSelect').addEventListener('change', function(){
+        const val=this.value;
+        if(!val) return;
+        const snippets = {
+          addressee: 'To, The Director / Principal\n[Institution Name]\n[Address]',
+          subject: 'Subject: ___________________________',
+          through: 'Through Proper Channel\n\n',
+          enclosure: 'Encl: 1. ___________\n2. ___________\n3. ___________'
+        };
+        const text = snippets[val] || '';
+        if(text){ const range=quill.getSelection(true); quill.insertText(range.index, text); quill.setSelection(range.index+text.length); }
+        this.value='';
+      });
 
-    async function loadSignaturesFromVault() {
-      try {
-        const db = await openDatabase();
-        return new Promise(resolve => {
-          const tx = db.transaction(STORE_NAME, 'readonly');
-          const store = tx.objectStore(STORE_NAME);
-          const req = store.getAll();
-          req.onsuccess = () => {
-            const list = (req.result || []).map(i => i.data).filter(isValidSignatureDataUrl);
-            resolve(list.length > 0 ? list : fallbackLocalSignatures());
-          };
-          req.onerror = () => resolve(fallbackLocalSignatures());
-        });
-      } catch {
-        return fallbackLocalSignatures();
+      // ---- table insert ----
+      el('btnInsertTable').addEventListener('click', ()=>{
+        const cols = prompt('Columns (2-4):', '3');
+        if(!cols) return;
+        const c = parseInt(cols);
+        if(c<2||c>4) return alert('2-4 columns only');
+        let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;width:100%;"><tr>';
+        for(let i=0;i<c;i++) html += '<th>Col '+(i+1)+'</th>';
+        html += '</tr><tr>';
+        for(let i=0;i<c;i++) html += '<td></td>';
+        html += '</tr></table>';
+        const range=quill.getSelection(true);
+        quill.clipboard.dangerouslyPasteHTML(range.index, html);
+      });
+
+      // ---- drafts manager (multi-draft) ----
+      function getDrafts(){ try { return JSON.parse(localStorage.getItem('arzi_drafts_v2'))||[]; } catch { return []; } }
+      function saveDraft(name){
+        const drafts=getDrafts();
+        const content=quill.getContents();
+        drafts.push({ id: Date.now(), name: name||'Draft '+new Date().toLocaleString(), content: content, timestamp: Date.now() });
+        localStorage.setItem('arzi_drafts_v2', JSON.stringify(drafts));
       }
-    }
-
-    function fallbackLocalSignatures() {
-      try {
-        const list = JSON.parse(localStorage.getItem('arzi_signatures_v1')) || [];
-        return Array.isArray(list) ? list.filter(isValidSignatureDataUrl) : [];
-      } catch {
-        return [];
-      }
-    }
-
-    async function openSignaturePicker() {
-      const signatures = await loadSignaturesFromVault();
-      const grid = el('sigModalGrid');
-      grid.innerHTML = '';
-
-      if (signatures.length === 0) {
-        grid.innerHTML = '<p style="font-size:0.8rem; color:#888;">No saved signatures found in your vault. Create or crop one in the Leave Form first.</p>';
-      } else {
-        signatures.forEach(dataUrl => {
-          const card = document.createElement('div');
-          card.className = 'sig-card';
-          const img = document.createElement('img');
-          img.src = dataUrl;
-          card.appendChild(img);
-          card.addEventListener('click', () => {
-            createFloatingSignature(dataUrl);
-            el('sigPickerModal').style.display = 'none';
-          });
-          grid.appendChild(card);
+      function renderDrafts(){
+        const list=el('draftList'); list.innerHTML='';
+        const drafts=getDrafts();
+        if(drafts.length===0){ list.innerHTML='<p style="color:#888;">No drafts saved.</p>'; return; }
+        drafts.slice().reverse().forEach(d=>{
+          const div=document.createElement('div'); div.className='draft-item';
+          div.innerHTML=`<span><strong>${d.name}</strong> <span class="draft-meta">${new Date(d.timestamp).toLocaleString()}</span></span>
+            <span><button class="btn" data-load="${d.id}" style="font-size:0.7rem;">Load</button> <button class="btn" data-del="${d.id}" style="font-size:0.7rem;">✕</button></span>`;
+          div.querySelector('[data-load]').addEventListener('click',()=>{ quill.setContents(d.content); el('draftModal').style.display='none'; });
+          div.querySelector('[data-del]').addEventListener('click',()=>{ const updated=getDrafts().filter(x=>x.id!==d.id); localStorage.setItem('arzi_drafts_v2', JSON.stringify(updated)); renderDrafts(); });
+          list.appendChild(div);
         });
       }
-      el('sigPickerModal').style.display = 'flex';
-    }
+      el('btnDrafts').addEventListener('click',()=>{ renderDrafts(); el('draftModal').style.display='flex'; });
+      el('draftModalClose').addEventListener('click',()=>{ el('draftModal').style.display='none'; });
 
-    /* ---------- Draggable Floating Signature ---------- */
-    function createFloatingSignature(dataUrl) {
-      if (!isValidSignatureDataUrl(dataUrl)) return;
-      const wrapper = el('canvasWrapper');
-
-      const sigBox = document.createElement('div');
-      sigBox.className = 'floating-signature';
-      sigBox.style.left = '320px';
-      sigBox.style.top = '480px';
-      sigBox.style.width = '140px';
-
-      const img = document.createElement('img');
-      img.src = dataUrl;
-      sigBox.appendChild(img);
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'sig-del-btn';
-      delBtn.innerHTML = '&times;';
-      delBtn.title = 'Remove signature';
-      delBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        wrapper.removeChild(sigBox);
-      });
-      sigBox.appendChild(delBtn);
-
-      const resizeHandle = document.createElement('div');
-      resizeHandle.className = 'sig-resize-handle';
-      sigBox.appendChild(resizeHandle);
-
-      let isDragging = false, startX, startY, initLeft, initTop;
-      sigBox.addEventListener('mousedown', e => {
-        if (e.target === delBtn || e.target === resizeHandle) return;
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        initLeft = sigBox.offsetLeft;
-        initTop = sigBox.offsetTop;
-        e.preventDefault();
+      // auto-save on change (with timestamp)
+      quill.on('text-change', ()=>{
+        updateCounters();
+        // auto-save to recent drafts (keep last 20)
+        const drafts=getDrafts();
+        const content=quill.getContents();
+        drafts.push({ id: Date.now(), name: 'Auto '+new Date().toLocaleString(), content, timestamp: Date.now() });
+        if(drafts.length>20) drafts.splice(0, drafts.length-20);
+        localStorage.setItem('arzi_drafts_v2', JSON.stringify(drafts));
+        // also preserve single draft for backward
+        try { localStorage.setItem('arzi_editor_draft_v2', JSON.stringify(quill.getContents())); } catch(e){}
       });
 
-      let isResizing = false, initW, initMouseX;
-      resizeHandle.addEventListener('mousedown', e => {
-        isResizing = true;
-        initW = sigBox.offsetWidth;
-        initMouseX = e.clientX;
-        e.stopPropagation();
-        e.preventDefault();
-      });
-
-      window.addEventListener('mousemove', e => {
-        if (isDragging) {
-          const dx = e.clientX - startX;
-          const dy = e.clientY - startY;
-          sigBox.style.left = Math.max(0, initLeft + dx) + 'px';
-          sigBox.style.top = Math.max(0, initTop + dy) + 'px';
-        } else if (isResizing) {
-          const dw = e.clientX - initMouseX;
-          sigBox.style.width = Math.max(60, initW + dw) + 'px';
-        }
-      });
-
-      window.addEventListener('mouseup', () => {
-        isDragging = false;
-        isResizing = false;
-      });
-
-      wrapper.appendChild(sigBox);
-    }
-
-    el('btnInsertSig').addEventListener('click', openSignaturePicker);
-    el('sigPickerClose').addEventListener('click', () => { el('sigPickerModal').style.display = 'none'; });
-
-    /* ---------- Page Calculation & Word Counters ---------- */
-    function updateCounters() {
-      const text = quill.getText();
-      const chars = text.replace(/\n/g, '').length;
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      el('textStats').textContent = `${words} words • ${chars} characters`;
-
-      const editorNode = document.querySelector('#editor-body .ql-editor');
-      const printableHeight = getStandardPagePixelHeight();
-      const currentScrollHeight = editorNode.scrollHeight;
-      const pages = Math.max(1, Math.ceil(currentScrollHeight / printableHeight));
-      el('pageStats').textContent = `Page 1 of ${pages}`;
-    }
-
-    function getStandardPagePixelHeight() {
-      const sel = el('pageSize');
-      const ratio = parseFloat(sel.selectedOptions[0].dataset.ratio);
-      const width = document.querySelector('.page-container').clientWidth;
-      return Math.round(width / ratio);
-    }
-
-    quill.on('text-change', () => {
-      updateCounters();
-      try { localStorage.setItem('arzi_editor_draft_v2', JSON.stringify(quill.getContents())); } catch (e) {}
-    });
-
-    function loadDraft() {
-      try {
-        const saved = localStorage.getItem('arzi_editor_draft_v2');
-        if (saved) quill.setContents(JSON.parse(saved));
-      } catch (e) {}
-    }
-
-    /* ---------- Export Engine: Full Capture With Lines, Margin & Floating Signatures ---------- */
-    async function captureFullDocumentCanvas() {
-      const wrapper = el('canvasWrapper');
-      const clone = wrapper.cloneNode(true);
-
-      clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(node => node.remove());
-      clone.querySelectorAll('.floating-signature').forEach(node => node.style.border = 'none');
-
-      clone.style.position = 'fixed';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      clone.style.width = wrapper.clientWidth + 'px';
-      clone.style.height = 'auto';
-      clone.style.overflow = 'visible';
-      clone.style.boxShadow = 'none';
-      clone.style.backgroundColor = '#ffffff';
-
-      // Keep lines active on clone
-      if (el('toggleRuled').checked) {
-        const lh = parseFloat(el('lineHeightInput').value) || 2.0;
-        const rowHeight = Math.round(16 * lh);
-        clone.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px)`;
-        clone.style.backgroundSize = `100% ${rowHeight}px`;
-      } else {
-        clone.style.backgroundImage = 'none';
+      // ---- counters ----
+      function updateCounters(){
+        const text=quill.getText(); const chars=text.replace(/\n/g,'').length; const words=text.trim()?text.trim().split(/\s+/).length:0;
+        el('textStats').textContent=`${words} words • ${chars} characters`;
+        const editorNode=document.querySelector('#editor-body .ql-editor');
+        const printableH=getStandardPagePixelHeight();
+        const pages=Math.max(1, Math.ceil(editorNode.scrollHeight/printableH));
+        el('pageStats').textContent=`Page 1 of ${pages}`;
       }
+      function getStandardPagePixelHeight(){ const ratio=parseFloat(el('pageSize').selectedOptions[0].dataset.ratio); const width=document.querySelector('.page-container').clientWidth; return Math.round(width/ratio); }
 
-      document.body.appendChild(clone);
-
-      try {
-        const canvas = await html2canvas(clone, {
-          scale: 2,
-          backgroundColor: '#ffffff',
-          useCORS: true,
-          logging: false
-        });
-        return canvas;
-      } finally {
-        document.body.removeChild(clone);
+      // ---- export: image, pdf, txt ----
+      async function captureFullDocumentCanvas(){
+        const wrapper=el('canvasWrapper');
+        const clone=wrapper.cloneNode(true);
+        clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(n=>n.remove());
+        clone.style.position='fixed'; clone.style.left='-9999px'; clone.style.top='0';
+        clone.style.width=wrapper.clientWidth+'px'; clone.style.height='auto'; clone.style.overflow='visible';
+        clone.style.boxShadow='none'; clone.style.backgroundColor='#ffffff';
+        if(el('toggleRuled').checked){
+          const lh=parseFloat(el('lineHeightInput').value)||2.0; const rowHeight=Math.round(16*lh);
+          clone.style.backgroundImage=`repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+          clone.style.backgroundSize=`100% ${rowHeight}px`;
+        } else clone.style.backgroundImage='none';
+        document.body.appendChild(clone);
+        try { const canvas=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}); return canvas; } finally { document.body.removeChild(clone); }
       }
-    }
-
-    function sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt) {
-      const pxPerPt = canvas.width / imgWidthPt;
-      const pagePxHeight = Math.max(1, Math.floor(contentHeightPt * pxPerPt));
-      const pages = [];
-      let y = 0;
-
-      while (y < canvas.height) {
-        const sliceH = Math.min(pagePxHeight, canvas.height - y);
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
-        pageCanvas.height = sliceH;
-        const ctx = pageCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-        ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-        pages.push(pageCanvas);
-        y += sliceH;
+      function sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt){
+        const pxPerPt=canvas.width/imgWidthPt; const pagePxHeight=Math.max(1,Math.floor(contentHeightPt*pxPerPt));
+        const pages=[]; let y=0;
+        while(y<canvas.height){ const sliceH=Math.min(pagePxHeight, canvas.height-y); const pc=document.createElement('canvas'); pc.width=canvas.width; pc.height=sliceH; const ctx=pc.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,pc.width,pc.height); ctx.drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH); pages.push(pc); y+=sliceH; }
+        return pages;
       }
-      return pages;
-    }
-
-    let pendingPdf = null;
-
-    async function exportAs(type) {
-      const btn = el(type === 'image' ? 'export-image' : 'export-pdf');
-      btn.disabled = true;
-      btn.textContent = 'Preparing…';
-
-      try {
-        const canvas = await captureFullDocumentCanvas();
-
-        if (type === 'image') {
-          const link = document.createElement('a');
-          link.download = 'handwritten-document.png';
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-          return;
-        }
-
-        const { jsPDF } = window.jspdf;
-        const formatKey = el('pageSize').value;
-        const pdf = new jsPDF({ unit: 'pt', format: formatKey });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 36;
-        const imgWidthPt = pageWidth - margin * 2;
-        const contentHeightPt = pageHeight - margin * 2;
-
-        const pageCanvases = sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
-        pageCanvases.forEach((pc, i) => {
-          if (i > 0) pdf.addPage();
-          const sliceHeightPt = (pc.height / canvas.width) * imgWidthPt;
-          pdf.addImage(pc.toDataURL('image/png'), 'PNG', margin, margin, imgWidthPt, sliceHeightPt);
-        });
-
-        pendingPdf = pdf;
-
-        const wrap = el('pdfPreviewPages');
-        wrap.innerHTML = '';
-        pageCanvases.forEach((pc, i) => {
-          const label = document.createElement('div');
-          label.className = 'pdf-page-label';
-          label.textContent = `Page ${i + 1} of ${pageCanvases.length}`;
-          const img = document.createElement('img');
-          img.src = pc.toDataURL('image/png');
-          wrap.appendChild(label);
-          wrap.appendChild(img);
-        });
-
-        el('pdfModal').style.display = 'flex';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = type === 'image' ? 'Save as Image' : 'Save as PDF';
+      let pendingPdf=null;
+      async function exportAs(type){
+        const btn=el(type==='image'?'export-image':type==='pdf'?'export-pdf':'export-text');
+        btn.disabled=true; btn.textContent='...';
+        try {
+          const canvas=await captureFullDocumentCanvas();
+          if(type==='image'){ const link=document.createElement('a'); link.download='handwritten-document.png'; link.href=canvas.toDataURL('image/png'); link.click(); return; }
+          if(type==='text'){ const text=quill.getText(); const blob=new Blob([text],{type:'text/plain'}); const link=document.createElement('a'); link.download='document.txt'; link.href=URL.createObjectURL(blob); link.click(); return; }
+          if(type==='pdf'){
+            const {jsPDF}=window.jspdf; const formatKey=el('pageSize').value; const pdf=new jsPDF({unit:'pt',format:formatKey});
+            const pageWidth=pdf.internal.pageSize.getWidth(); const pageHeight=pdf.internal.pageSize.getHeight(); const margin=36;
+            const imgWidthPt=pageWidth-margin*2; const contentHeightPt=pageHeight-margin*2;
+            const pageCanvases=sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
+            pageCanvases.forEach((pc,i)=>{ if(i>0) pdf.addPage(); const sliceHeightPt=(pc.height/canvas.width)*imgWidthPt; pdf.addImage(pc.toDataURL('image/png'),'PNG',margin,margin,imgWidthPt,sliceHeightPt); });
+            pendingPdf=pdf;
+            const wrap=el('pdfPreviewPages'); wrap.innerHTML='';
+            pageCanvases.forEach((pc,i)=>{ const label=document.createElement('div'); label.className='pdf-page-label'; label.textContent=`Page ${i+1} of ${pageCanvases.length}`; const img=document.createElement('img'); img.src=pc.toDataURL('image/png'); wrap.appendChild(label); wrap.appendChild(img); });
+            el('pdfModal').style.display='flex';
+          }
+        } finally { btn.disabled=false; btn.textContent=type==='image'?'Image':type==='pdf'?'PDF':'TXT'; }
       }
-    }
+      el('export-image').addEventListener('click',()=>exportAs('image'));
+      el('export-pdf').addEventListener('click',()=>exportAs('pdf'));
+      el('export-text').addEventListener('click',()=>exportAs('text'));
+      el('pdfModalClose').addEventListener('click',()=>{ el('pdfModal').style.display='none'; });
+      el('pdfModalDownload').addEventListener('click',()=>{ if(pendingPdf) pendingPdf.save('handwritten-document.pdf'); });
 
-    el('pdfModalClose').addEventListener('click', () => { el('pdfModal').style.display = 'none'; });
-    el('pdfModalDownload').addEventListener('click', () => {
-      if (pendingPdf) pendingPdf.save('handwritten-document.pdf');
-    });
+      // ---- init ----
+      function loadDraft(){ try { const saved=localStorage.getItem('arzi_editor_draft_v2'); if(saved) quill.setContents(JSON.parse(saved)); } catch(e){} }
+      loadDraft();
+      updateCounters(); updateRuledBackground();
+      const initH=getStandardPagePixelHeight();
+      document.querySelector('#editor-body .ql-editor').style.minHeight=initH+'px';
+      // page size change
+      el('pageSize').addEventListener('change', ()=>{ const h=getStandardPagePixelHeight(); document.querySelector('#editor-body .ql-editor').style.minHeight=h+'px'; updateCounters(); });
 
-    el('pageSize').addEventListener('change', () => {
-      const printableH = getStandardPagePixelHeight();
-      document.querySelector('#editor-body .ql-editor').style.minHeight = printableH + 'px';
-      updateCounters();
-    });
+      // ---- Ctrl+P print ----
+      document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='p'){ e.preventDefault(); window.print(); } });
 
-    el('export-image').addEventListener('click', () => exportAs('image'));
-    el('export-pdf').addEventListener('click', () => exportAs('pdf'));
-
-    // Initialization
-    loadDraft();
-    updateCounters();
-    updateRuledBackground();
-    const initH = getStandardPagePixelHeight();
-    document.querySelector('#editor-body .ql-editor').style.minHeight = initH + 'px';
+      // ---- extra: page sheet separation (visual) ----
+      // we rely on min-height and scroll for multi-page; no physical sheets needed.
+      console.log('Arzi Pro loaded with all features.');
+    })();
   </script>
-
 </body>
 </html>
