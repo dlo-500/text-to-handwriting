@@ -27,8 +27,24 @@
     flex-wrap: wrap;
     gap: 0.75rem;
   }
-  .back-link { font-size: 0.85rem; color: var(--ink-soft); text-decoration: none; }
-  .back-link:hover { color: var(--maroon); }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .back-link, .editor-nav-link {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .editor-nav-link {
+    color: var(--maroon);
+    font-weight: 600;
+    border-left: 1px solid var(--line);
+    padding-left: 1rem;
+  }
+  .back-link:hover, .editor-nav-link:hover { color: var(--maroon-deep); text-decoration: underline; }
 
   .export-actions { display: flex; gap: 0.6rem; }
   .btn {
@@ -224,7 +240,7 @@
   .style-toolbar {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
     margin-bottom: 0.75rem;
     padding: 0.6rem 0.75rem;
     background: var(--paper-raised);
@@ -232,7 +248,8 @@
     border-radius: 6px;
     flex-wrap: wrap;
   }
-  .style-toolbar select {
+  .style-toolbar select,
+  .style-toolbar input[type="number"] {
     padding: 0.4rem 0.5rem;
     border: 1px solid var(--line);
     border-radius: 4px;
@@ -241,6 +258,40 @@
     background: #fff;
     color: var(--ink);
   }
+  .font-size-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .font-size-wrap input[type="number"] {
+    width: 58px;
+  }
+  .align-toolbar {
+    display: flex;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .btn-align {
+    background: #fff;
+    border: none;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--ink-soft);
+    font-weight: 600;
+    border-right: 1px solid var(--line);
+  }
+  .btn-align:last-child { border-right: none; }
+  .btn-align.active {
+    background: var(--maroon);
+    color: #fff;
+  }
+
   .color-label {
     display: flex;
     align-items: center;
@@ -268,17 +319,18 @@
     aspect-ratio: 210 / 297;
     margin: 0 auto;
     font-family: var(--font-display);
-    font-size: 0.98rem;
+    font-size: 16px;
     line-height: 1.75;
     color: var(--ink);
     overflow-y: auto;
+    text-align: left;
   }
   .paper p { margin: 0 0 0.9rem; }
   .paper .subject { font-weight: 600; }
   .paper .sig-line { margin-top: 0.5rem; }
   .paper .sig-img { max-height: 55px; max-width: 160px; display: block; margin-bottom: 0.2rem; }
   .paper .copy-block { margin-top: 1.6rem; font-size: 0.9rem; }
-  .paper table.formI { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .paper table.formI { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
   .paper table.formI td { border: 1px solid #999; padding: 0.4rem 0.5rem; vertical-align: top; }
   .paper table.formI td.num { width: 2.2rem; }
 
@@ -350,7 +402,10 @@
 <body>
 
   <div class="app-header">
-    <a class="back-link" href="index.html">&larr; Back</a>
+    <div class="header-left">
+      <a class="back-link" href="index.html">&larr; Back</a>
+      <a class="editor-nav-link" href="editor.html" title="Open freeform handwritten letter editor">Write by yourself &rarr;</a>
+    </div>
     <div class="export-actions">
       <button class="btn" id="export-image">Save as Image</button>
       <button class="btn primary" id="export-pdf">Save as PDF</button>
@@ -593,15 +648,24 @@
             <option value="'Caveat Brush', cursive">Caveat Brush</option>
           </optgroup>
         </select>
-        <select id="fontSize">
-          <option value="14px">Small</option>
-          <option value="16px" selected>Normal</option>
-          <option value="19px">Large</option>
-          <option value="23px">Huge</option>
-        </select>
+
+        <div class="font-size-wrap">
+          <span>Size:</span>
+          <input type="number" id="fontSize" min="1" max="40" value="16" step="1">
+          <span>px</span>
+        </div>
+
+        <div class="align-toolbar">
+          <button type="button" class="btn-align active" data-align="left" title="Align Left">Left</button>
+          <button type="button" class="btn-align" data-align="center" title="Align Center">Center</button>
+          <button type="button" class="btn-align" data-align="right" title="Align Right">Right</button>
+          <button type="button" class="btn-align" data-align="justify" title="Justify">Justify</button>
+        </div>
+
         <label class="color-label">Colour
           <input type="color" id="fontColor" value="#23283a">
         </label>
+
         <select id="pageSize">
           <option value="a4" data-ratio="210 / 297" selected>A4</option>
           <option value="letter" data-ratio="216 / 279">Letter</option>
@@ -609,6 +673,7 @@
           <option value="a5" data-ratio="148 / 210">A5</option>
         </select>
       </div>
+
       <div class="paper" id="paper"></div>
     </div>
 
@@ -640,6 +705,7 @@
     };
 
     let signatureDataUrl = null;
+    let currentTextAlign = 'left';
 
     function fmtDate(iso) {
       if (!iso) return '__.__.____';
@@ -800,6 +866,15 @@
       el('designationPreset').addEventListener('change', () => {
         el('designationCustomField').style.display = el('designationPreset').value === 'custom' ? '' : 'none';
         render();
+      });
+
+      document.querySelectorAll('.btn-align').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.btn-align').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentTextAlign = btn.dataset.align;
+          applyPaperStyle();
+        });
       });
     }
 
@@ -1120,7 +1195,6 @@
       const sx = cropRect.x * scaleX, sy = cropRect.y * scaleY;
       const sw = cropRect.w * scaleX, sh = cropRect.h * scaleY;
 
-      // Restrict max output width to save memory and ensure snappy storage performance
       const downScale = sw > MAX_SIGNATURE_WIDTH ? (MAX_SIGNATURE_WIDTH / sw) : 1;
       const finalW = Math.round(sw * downScale);
       const finalH = Math.round(sh * downScale);
@@ -1144,12 +1218,54 @@
       el('sigCropWrap').style.display = 'none';
     });
 
+    /* ---------- Accurate Full-Document Capture & Multi-Page PDF Generation ---------- */
+
+    async function captureFullPaperCanvas() {
+      const paper = el('paper');
+      const clone = paper.cloneNode(true);
+
+      clone.style.position = 'fixed';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = paper.clientWidth + 'px';
+      clone.style.height = 'auto';
+      clone.style.minHeight = 'auto';
+      clone.style.maxHeight = 'none';
+      clone.style.aspectRatio = 'auto';
+      clone.style.overflow = 'visible';
+      clone.style.boxShadow = 'none';
+      clone.style.border = 'none';
+      clone.style.zIndex = '-9999';
+
+      document.body.appendChild(clone);
+
+      try {
+        const canvas = await html2canvas(clone, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false
+        });
+        return canvas;
+      } finally {
+        document.body.removeChild(clone);
+      }
+    }
+
     async function exportImage() {
-      const canvas = await html2canvas(el('paper'), { scale: 2, backgroundColor: '#ffffff' });
-      const link = document.createElement('a');
-      link.download = 'leave-application.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const btn = el('export-image');
+      btn.disabled = true;
+      btn.textContent = 'Exporting…';
+      try {
+        const canvas = await captureFullPaperCanvas();
+        const link = document.createElement('a');
+        link.download = 'leave-application.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save as Image';
+      }
     }
 
     let pendingPdf = null;
@@ -1159,6 +1275,7 @@
       const pagePxHeight = Math.max(1, Math.floor(contentHeightPt * pxPerPt));
       const pages = [];
       let y = 0;
+
       while (y < canvas.height) {
         const sliceH = Math.min(pagePxHeight, canvas.height - y);
         const pageCanvas = document.createElement('canvas');
@@ -1175,7 +1292,7 @@
     }
 
     async function buildPdfAndPages() {
-      const canvas = await html2canvas(el('paper'), { scale: 2, backgroundColor: '#ffffff' });
+      const canvas = await captureFullPaperCanvas();
       const { jsPDF } = window.jspdf;
       const formatKey = el('pageSize').value;
       const pdf = new jsPDF({ unit: 'pt', format: formatKey });
@@ -1236,13 +1353,22 @@
     function applyPaperStyle() {
       const paper = el('paper');
       paper.style.fontFamily = el('fontFamily').value;
-      paper.style.fontSize = el('fontSize').value;
+
+      let sizeVal = parseInt(el('fontSize').value, 10);
+      if (isNaN(sizeVal) || sizeVal < 1) sizeVal = 16;
+      if (sizeVal > 40) sizeVal = 40;
+      paper.style.fontSize = sizeVal + 'px';
+
       paper.style.color = el('fontColor').value;
+      paper.style.textAlign = currentTextAlign;
+
       const sel = el('pageSize');
       const ratio = sel.options[sel.selectedIndex].dataset.ratio;
       paper.style.aspectRatio = ratio;
     }
+
     el('fontFamily').addEventListener('change', applyPaperStyle);
+    el('fontSize').addEventListener('input', applyPaperStyle);
     el('fontSize').addEventListener('change', applyPaperStyle);
     el('fontColor').addEventListener('input', applyPaperStyle);
     el('pageSize').addEventListener('change', applyPaperStyle);
