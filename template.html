@@ -484,7 +484,41 @@
 
       <div class="field-group" id="numDaysField" style="display:none;">
         <label for="numDays">Number of days</label>
-        <input type="number" id="numDays" min="2" value="2">
+        <input type="number" id="numDays" min="1" value="2">
+      </div>
+
+      <!-- Joining Report Specific Fields -->
+      <div id="joiningFields" style="display:none;">
+        <div class="field-group">
+          <label for="joiningLeaveType">Nature of leave availed</label>
+          <select id="joiningLeaveType">
+            <option value="earned leave">Earned Leave</option>
+            <option value="casual leave">Casual Leave</option>
+            <option value="medical leave">Medical / Commuted Leave</option>
+            <option value="maternity leave">Maternity Leave</option>
+            <option value="paternity leave">Paternity Leave</option>
+            <option value="child care leave">Child Care Leave (CCL)</option>
+            <option value="station leave">Station Leave</option>
+            <option value="custom">Other (type custom)</option>
+          </select>
+        </div>
+        <div class="field-group" id="joiningCustomField" style="display:none;">
+          <label for="joiningCustomText">Custom leave type</label>
+          <input type="text" id="joiningCustomText" placeholder="e.g. Special Casual Leave">
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="joiningResumeDate">Resumed duty on</label>
+            <input type="date" id="joiningResumeDate">
+          </div>
+          <div class="field-group">
+            <label for="joiningSession">Session</label>
+            <select id="joiningSession">
+              <option value="Forenoon">Forenoon (FN)</option>
+              <option value="Afternoon">Afternoon (AN)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div class="field-group" id="sessionField" style="display:none;">
@@ -745,11 +779,40 @@
       return `${d}.${m}.${y}`;
     }
 
+    function addDays(isoDate, days) {
+      if (!isoDate) return '';
+      const [y, m, d] = isoDate.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+      date.setDate(date.getDate() + days);
+      const yy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yy}-${mm}-${dd}`;
+    }
+
+    function diffDaysInclusive(isoFrom, isoTo) {
+      if (!isoFrom || !isoTo) return 1;
+      const [y1, m1, d1] = isoFrom.split('-').map(Number);
+      const [y2, m2, d2] = isoTo.split('-').map(Number);
+      const dt1 = new Date(y1, m1 - 1, d1);
+      const dt2 = new Date(y2, m2 - 1, d2);
+      const diffTime = dt2.getTime() - dt1.getTime();
+      const diff = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      return diff > 0 ? diff : 1;
+    }
+
     function initDefaultDates() {
       const today = new Date().toISOString().split('T')[0];
       if (!el('dateSingle').value) el('dateSingle').value = today;
       if (!el('dateFrom').value) el('dateFrom').value = today;
-      if (!el('dateTo').value) el('dateTo').value = today;
+      
+      const days = parseInt(el('numDays').value, 10) || 2;
+      if (!el('dateTo').value) {
+        el('dateTo').value = addDays(today, days - 1);
+      }
+      if (!el('joiningResumeDate').value) {
+        el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
+      }
     }
 
     const PROFILE_FIELDS = [
@@ -796,21 +859,35 @@
       return preset === 'custom' ? (el('designationCustom').value || '[Designation]') : preset;
     }
 
+    function currentJoiningLeaveType() {
+      const sel = el('joiningLeaveType').value;
+      if (sel === 'custom') {
+        return (el('joiningCustomText').value.trim() || 'leave');
+      }
+      return sel;
+    }
+
     function toggleFieldsForType(type) {
       const show = (id, on) => el(id).style.display = on ? '' : 'none';
       show('dateFieldsSingle', ['casual1', 'halfday', 'stationLeave'].includes(type));
       show('dateFieldsRange', ['casualN', 'earnedLetter', 'earnedFormI', 'joining'].includes(type));
       show('numDaysField', type === 'casualN');
       show('sessionField', type === 'halfday');
-      show('reasonField', type !== 'earnedFormI');
+      show('joiningFields', type === 'joining');
+      show('reasonField', !['earnedFormI', 'joining'].includes(type));
       show('durationField', ['earnedLetter'].includes(type));
       show('formIFields', type === 'earnedFormI');
-      const reasonCustomOn = el('reasonPreset').value === 'custom' && type !== 'earnedFormI';
+
+      const reasonCustomOn = el('reasonPreset').value === 'custom' && !['earnedFormI', 'joining'].includes(type);
       show('reasonCustomField', reasonCustomOn);
+
+      const joiningCustomOn = type === 'joining' && el('joiningLeaveType').value === 'custom';
+      show('joiningCustomField', joiningCustomOn);
     }
 
     function numToWord(n) {
-      const words = ['zero','one','two','three','four','five','six','seven','eight','nine','ten'];
+      const words = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
+                     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty'];
       return words[n] || n;
     }
 
@@ -834,7 +911,7 @@
         const to = fmtDate(el('dateTo').value);
         const n = el('numDays').value || 2;
         subject = `Application seeking ${numToWord(n)} days Casual Leave.`;
-        body = `With respect and high regards it is submitted that due to ${reason} I am unable to attend my duties for ${numToWord(n)} days, i.e., from ${from} to ${to}. So it is requested to kindly sanction ${numToWord(n)} days leave in my favour.<br>Same shall be your most kindness.`;
+        body = `With respect and high regards it is submitted that due to ${reason} I am unable to attend my duties for ${numToWord(n)} days, i.e., from ${from} to ${to} (both dates inclusive). So it is requested to kindly sanction ${numToWord(n)} days leave in my favour.<br>Same shall be your most kindness.`;
       } else if (type === 'halfday') {
         const date = fmtDate(el('dateSingle').value);
         const session = el('session').value;
@@ -854,9 +931,11 @@
       } else if (type === 'joining') {
         const from = fmtDate(el('dateFrom').value);
         const to = fmtDate(el('dateTo').value);
-        const today = fmtDate(el('dateSingle').value) === '__.__.____' ? to : fmtDate(el('dateSingle').value);
+        const leaveNature = currentJoiningLeaveType();
+        const resumeDate = fmtDate(el('joiningResumeDate').value);
+        const session = el('joiningSession').value;
         subject = 'Joining Report.';
-        body = `With respect it is submitted that the undersigned was on leave from ${from} to ${to}. Now the undersigned has resumed duties today on ${today}.<br>Hence the joining report is submitted for favour of information and further necessary action.`;
+        body = `With respect it is submitted that the undersigned was on <b>${leaveNature}</b> from ${from} to ${to} (both dates inclusive). Now the undersigned has resumed duties today on <b>${resumeDate} (${session})</b>.<br>Hence the joining report is submitted for favour of information and further necessary action.`;
       }
 
       const sigHtml = isValidSignatureDataUrl(signatureDataUrl) ? `<img class="sig-img" src="${signatureDataUrl}">` : '';
@@ -896,7 +975,7 @@
           <tr><td class="num">3.</td><td>Department/Office</td><td>${office}</td></tr>
           <tr><td class="num">4.</td><td>Pay</td><td></td></tr>
           <tr><td class="num">5.</td><td>House rent and other compensatory allowances drawn in the present post</td><td></td></tr>
-          <tr><td class="num">6.</td><td>Nature and period of leave applied for and date from which required</td><td>Earned Leave w.e.f ${from} to ${to}</td></tr>
+          <tr><td class="num">6.</td><td>Nature and period of leave applied for and date from which required</td><td>Earned Leave w.e.f ${from} to ${to} (both dates inclusive)</td></tr>
           <tr><td class="num">7.</td><td>Sundays and holidays, if any, proposed to be prefixed/suffixed to leave</td><td>${prefix}</td></tr>
           <tr><td class="num">8.</td><td>Grounds on which leave is applied for</td><td>${grounds}</td></tr>
           <tr><td class="num">9.</td><td>Date of return from last leave and the nature and period of the leave</td><td></td></tr>
@@ -912,15 +991,49 @@
     }
 
     function bindLive() {
-      document.querySelectorAll('#leaveType, #dateSingle, #dateFrom, #dateTo, #numDays, #session, #reasonPreset, #reasonCustom, #duration, #addresseePreset, #addresseeCustom, #applicantName, #designationPreset, #designationCustom, #attendanceId, #copyTo, #fiPost, #fiOffice, #fiGrounds, #fiPrefix, #fiAddress')
+      document.querySelectorAll('#leaveType, #dateSingle, #dateFrom, #dateTo, #numDays, #session, #joiningLeaveType, #joiningCustomText, #joiningResumeDate, #joiningSession, #reasonPreset, #reasonCustom, #duration, #addresseePreset, #addresseeCustom, #applicantName, #designationPreset, #designationCustom, #attendanceId, #copyTo, #fiPost, #fiOffice, #fiGrounds, #fiPrefix, #fiAddress')
         .forEach(node => {
           if (!node) return;
           node.addEventListener('input', () => { render(); saveUserProfile(); });
           node.addEventListener('change', () => { render(); saveUserProfile(); });
         });
 
+      // Bi-directional calendar auto-calculation
+      el('numDays').addEventListener('input', () => {
+        const days = parseInt(el('numDays').value, 10);
+        if (days > 0 && el('dateFrom').value) {
+          el('dateTo').value = addDays(el('dateFrom').value, days - 1);
+          el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
+        }
+        render();
+      });
+
+      el('dateFrom').addEventListener('change', () => {
+        if (el('leaveType').value === 'casualN') {
+          const days = parseInt(el('numDays').value, 10) || 1;
+          el('dateTo').value = addDays(el('dateFrom').value, days - 1);
+        } else {
+          el('numDays').value = diffDaysInclusive(el('dateFrom').value, el('dateTo').value);
+        }
+        el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
+        render();
+      });
+
+      el('dateTo').addEventListener('change', () => {
+        if (el('dateFrom').value) {
+          const days = diffDaysInclusive(el('dateFrom').value, el('dateTo').value);
+          el('numDays').value = days;
+        }
+        el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
+        render();
+      });
+
       el('leaveType').addEventListener('change', e => {
         toggleFieldsForType(e.target.value);
+        render();
+      });
+      el('joiningLeaveType').addEventListener('change', () => {
+        el('joiningCustomField').style.display = el('joiningLeaveType').value === 'custom' ? '' : 'none';
         render();
       });
       el('reasonPreset').addEventListener('change', () => {
