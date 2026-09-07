@@ -23,23 +23,35 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.25rem;
+    padding: 0.85rem 1.25rem;
     border-bottom: 1px solid var(--line);
     background: var(--paper-raised);
     flex-wrap: wrap;
     gap: 0.75rem;
   }
 
-  .back-link {
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .back-link, .template-nav-link {
     font-size: 0.85rem;
     color: var(--ink-soft);
     text-decoration: none;
+    font-weight: 500;
   }
-  .back-link:hover { color: var(--maroon); }
+  .template-nav-link {
+    color: var(--maroon);
+    font-weight: 600;
+    border-left: 1px solid var(--line);
+    padding-left: 1rem;
+  }
+  .back-link:hover, .template-nav-link:hover { color: var(--maroon-deep); text-decoration: underline; }
 
-  .export-actions { display: flex; gap: 0.6rem; align-items: center; }
+  .export-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
   .export-actions select {
-    padding: 0.5rem 0.6rem;
+    padding: 0.45rem 0.6rem;
     border: 1px solid var(--line);
     border-radius: 4px;
     font-family: var(--font-body);
@@ -52,7 +64,7 @@
     font-family: var(--font-body);
     font-size: 0.85rem;
     font-weight: 600;
-    padding: 0.55rem 1rem;
+    padding: 0.5rem 0.9rem;
     border-radius: 3px;
     border: 1px solid var(--line);
     background: var(--paper-raised);
@@ -68,36 +80,90 @@
   .btn:hover { border-color: var(--brass); }
 
   .editor-shell {
-    flex: 1;
     display: flex;
-    justify-content: center;
-    padding: 2rem 1rem 3rem;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem 3rem;
   }
 
-  .page {
+  .page-container {
     width: 100%;
-    max-width: 720px;
+    max-width: 760px;
   }
 
   #toolbar {
     background: var(--paper-raised);
     border: 1px solid var(--line);
     border-bottom: none;
-    border-radius: 4px 4px 0 0;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+  }
+
+  .paper-style-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  .paper-style-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
   }
 
   #editor-body {
     background: #ffffff;
     border: 1px solid var(--line);
-    border-radius: 0 0 4px 4px;
-    min-height: 500px;
-    font-size: 1rem;
-    line-height: 1.6;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 10px 24px -14px rgba(35,40,58,0.25);
+    min-height: 840px;
+    position: relative;
+    transition: background 0.2s ease;
   }
-  .ql-editor { min-height: 500px; padding: 2.25rem; font-family: var(--font-display); }
-  .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
 
-  /* Font family options */
+  /* Ruled paper styles */
+  #editor-body.ruled-paper {
+    background-image: repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      #d4d9e2 31px,
+      #d4d9e2 32px
+    );
+    background-size: 100% 32px;
+  }
+
+  #editor-body.ruled-margin {
+    border-left: 2px solid #e78c8c;
+    box-shadow: -24px 0 0 0 #fff, -25px 0 0 0 #e2e4e9, 0 10px 24px -14px rgba(35,40,58,0.25);
+  }
+
+  .ql-editor {
+    min-height: 840px;
+    padding: 3rem 2.75rem;
+    font-family: 'Lora', serif;
+    font-size: 16px;
+    line-height: 2;
+    color: #23283a;
+  }
+  .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
+  .ql-editor img {
+    display: block;
+    max-height: 65px;
+    max-width: 180px;
+    margin: 0.5rem 0;
+    object-fit: contain;
+  }
+
+  /* Font whitelist styles */
   .ql-font-arial { font-family: Arial, sans-serif; }
   .ql-font-georgia { font-family: Georgia, serif; }
   .ql-font-lora { font-family: 'Lora', serif; }
@@ -124,6 +190,7 @@
   .ql-font-yellowtail { font-family: 'Yellowtail', cursive; }
   .ql-font-homemade { font-family: 'Homemade Apple', cursive; }
 
+  /* Font Picker labels */
   .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
   .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before { content: 'Georgia'; }
   .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
@@ -132,7 +199,6 @@
   .ql-picker.ql-font .ql-picker-item[data-value="lora"]::before { content: 'Lora'; }
   .ql-picker.ql-font .ql-picker-label[data-value="playfair"]::before,
   .ql-picker.ql-font .ql-picker-item[data-value="playfair"]::before { content: 'Playfair Display'; }
-
   .ql-picker.ql-font .ql-picker-label[data-value="caveat"]::before,
   .ql-picker.ql-font .ql-picker-item[data-value="caveat"]::before { content: 'Caveat'; font-family: 'Caveat', cursive; }
   .ql-picker.ql-font .ql-picker-label[data-value="caveatbrush"]::before,
@@ -176,18 +242,89 @@
   .ql-picker.ql-font .ql-picker-label[data-value="homemade"]::before,
   .ql-picker.ql-font .ql-picker-item[data-value="homemade"]::before { content: 'Homemade Apple'; font-family: 'Homemade Apple', cursive; }
 
-  .ql-size-small { font-size: 0.75rem; }
-  .ql-size-normal { font-size: 1rem; }
-  .ql-size-large { font-size: 1.5rem; }
-  .ql-size-huge { font-size: 2.2rem; }
-
-  #status {
-    text-align: center;
-    font-size: 0.8rem;
-    color: var(--ink-soft);
-    padding-top: 0.5rem;
+  /* Custom quill toolbar button for signatures */
+  .ql-signature::before {
+    content: '✍️ Sign';
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    font-weight: 600;
   }
 
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    padding: 0.6rem 0.5rem;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  /* Signature insertion modal */
+  .sig-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(20,20,25,0.6);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+  }
+  .sig-modal-inner {
+    background: #fff;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 580px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.3);
+  }
+  .sig-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--ink);
+  }
+  .sig-modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+  }
+  .sig-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+  }
+  .sig-card {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    width: 96px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: #fafafa;
+    overflow: hidden;
+  }
+  .sig-card:hover {
+    border-color: var(--maroon);
+    box-shadow: 0 0 0 2px rgba(122,35,49,0.2);
+  }
+  .sig-card img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  /* PDF Preview Modal */
   .pdf-modal {
     display: none;
     position: fixed;
@@ -219,11 +356,7 @@
     color: var(--ink);
   }
   .pdf-modal-actions { display: flex; gap: 0.5rem; }
-  #pdfPreviewFrame {
-    flex: 1;
-    border: none;
-    width: 100%;
-  }
+  #pdfPreviewFrame { flex: 1; border: none; width: 100%; }
   #pdfPreviewPages {
     flex: 1;
     overflow-y: auto;
@@ -247,12 +380,28 @@
     text-align: center;
     margin-bottom: -0.6rem;
   }
+
+  @media print {
+    body * { visibility: hidden; }
+    #editor-body, #editor-body * { visibility: visible; }
+    #editor-body {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100% !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+  }
 </style>
 </head>
 <body>
 
   <div class="editor-header">
-    <a class="back-link" href="index.html">&larr; Back</a>
+    <div class="header-left">
+      <a class="back-link" href="index.html">&larr; Back</a>
+      <a class="template-nav-link" href="template.html" title="Use official Leave Application Templates">Pre-formatted Leave Form &rarr;</a>
+    </div>
     <div class="export-actions">
       <select id="pageSize">
         <option value="a4" data-ratio="0.7071" selected>A4</option>
@@ -266,9 +415,15 @@
   </div>
 
   <div class="editor-shell">
-    <div class="page">
+    <div class="page-container">
       <div id="toolbar">
         <span class="ql-formats">
+          <select class="ql-header">
+            <option selected>Body</option>
+            <option value="1">Heading 1</option>
+            <option value="2">Heading 2</option>
+            <option value="3">Heading 3</option>
+          </select>
           <select class="ql-font">
             <option value="lora" selected>Lora</option>
             <option value="arial">Arial</option>
@@ -297,45 +452,88 @@
             <option value="caveatbrush">Caveat Brush</option>
           </select>
           <select class="ql-size">
-            <option value="small">Small</option>
-            <option value="normal" selected>Normal</option>
-            <option value="large">Large</option>
-            <option value="huge">Huge</option>
+            <option value="12px">12px</option>
+            <option value="14px">14px</option>
+            <option value="16px" selected>16px</option>
+            <option value="18px">18px</option>
+            <option value="20px">20px</option>
+            <option value="24px">24px</option>
+            <option value="28px">28px</option>
+            <option value="32px">32px</option>
           </select>
         </span>
+
         <span class="ql-formats">
           <button class="ql-bold"></button>
           <button class="ql-italic"></button>
           <button class="ql-underline"></button>
           <button class="ql-strike"></button>
         </span>
+
         <span class="ql-formats">
-          <select class="ql-color"></select>
+          <select class="ql-color">
+            <option value="#23283a" selected></option>
+            <option value="#003366"></option>
+            <option value="#1a365d"></option>
+            <option value="#7a2331"></option>
+            <option value="#8b0000"></option>
+            <option value="#2e7d32"></option>
+          </select>
           <select class="ql-background"></select>
         </span>
+
         <span class="ql-formats">
           <button class="ql-align" value=""></button>
           <button class="ql-align" value="center"></button>
           <button class="ql-align" value="right"></button>
           <button class="ql-align" value="justify"></button>
         </span>
-        <span class="ql-formats">
-          <button class="ql-indent" value="-1"></button>
-          <button class="ql-indent" value="+1"></button>
-        </span>
+
         <span class="ql-formats">
           <button class="ql-list" value="ordered"></button>
           <button class="ql-list" value="bullet"></button>
+          <button class="ql-indent" value="-1"></button>
+          <button class="ql-indent" value="+1"></button>
         </span>
+
         <span class="ql-formats">
+          <button type="button" class="ql-signature" id="btnInsertSig" title="Insert Saved Signature"></button>
           <button class="ql-clean"></button>
         </span>
+
+        <div class="paper-style-group">
+          <label><input type="checkbox" id="toggleRuled"> Lines</label>
+          <label><input type="checkbox" id="toggleMargin"> Margin</label>
+        </div>
       </div>
+
       <div id="editor-body"></div>
-      <div id="status"></div>
+
+      <div class="status-bar">
+        <span id="pageStats">Page 1 of 1</span>
+        <span id="textStats">0 words &bull; 0 characters</span>
+      </div>
     </div>
   </div>
 
+  <!-- Signature Selector Modal -->
+  <div class="sig-modal" id="sigPickerModal">
+    <div class="sig-modal-inner">
+      <div class="sig-modal-header">
+        <span>Insert Signature</span>
+        <button type="button" class="btn" id="sigPickerClose">&times;</button>
+      </div>
+      <div class="sig-modal-body">
+        <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:0;">Select a signature from your local vault:</p>
+        <div class="sig-grid" id="sigModalGrid"></div>
+        <div style="margin-top:1.25rem; display:flex; justify-content:space-between; align-items:center;">
+          <a href="template.html" class="btn-small" style="text-decoration:none; color:var(--maroon);">+ Manage / Upload signatures in Template page</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Preview Modal -->
   <div class="pdf-modal" id="pdfModal">
     <div class="pdf-modal-inner">
       <div class="pdf-modal-header">
@@ -355,77 +553,195 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <script>
+    const el = id => document.getElementById(id);
+
+    // Font Whitelist Registration
     const Font = Quill.import('formats/font');
-    Font.whitelist = ['arial', 'georgia', 'lora', 'playfair', 'caveat', 'caveatbrush', 'kalam', 'shadows', 'indie', 'patrick', 'handlee', 'gochi', 'architects', 'covered', 'nanum', 'marker', 'rocksalt', 'dancing', 'sacramento', 'satisfy', 'pacifico', 'greatvibes', 'allura', 'yellowtail', 'homemade'];
+    Font.whitelist = [
+      'arial', 'georgia', 'lora', 'playfair', 'caveat', 'caveatbrush', 'kalam',
+      'shadows', 'indie', 'patrick', 'handlee', 'gochi', 'architects', 'covered',
+      'nanum', 'marker', 'rocksalt', 'dancing', 'sacramento', 'satisfy',
+      'pacifico', 'greatvibes', 'allura', 'yellowtail', 'homemade'
+    ];
     Quill.register(Font, true);
 
-    const Size = Quill.import('formats/size');
-    Size.whitelist = ['small', 'normal', 'large', 'huge'];
+    // Numeric Exact Font Sizes
+    const Size = Quill.import('attributors/style/size');
+    Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
     Quill.register(Size, true);
 
     const quill = new Quill('#editor-body', {
       theme: 'snow',
       modules: { toolbar: '#toolbar' },
-      placeholder: 'Start writing your application here…'
+      placeholder: 'Start typing your application or official letter freely here…'
     });
-    applyPageMinHeight();
 
-    async function exportAs(type) {
-      const status = document.getElementById('status');
-      const target = document.querySelector('#editor-body .ql-editor');
+    /* ---------- Signature Vault Shared Retrieval (IndexedDB) ---------- */
+    const DB_NAME = 'ArziSignaturesDB';
+    const STORE_NAME = 'signatures';
 
-      if (type === 'image') {
-        status.textContent = 'Preparing export…';
-        const canvas = await html2canvas(target, { scale: 2, backgroundColor: '#ffffff' });
-        const link = document.createElement('a');
-        link.download = 'application.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        status.textContent = '';
-        return;
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function isValidSignatureDataUrl(dataUrl) {
+      if (typeof dataUrl !== 'string') return false;
+      return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl);
+    }
+
+    async function loadSignaturesFromVault() {
+      try {
+        const db = await openDatabase();
+        return new Promise(resolve => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => {
+            const list = (req.result || []).map(i => i.data).filter(isValidSignatureDataUrl);
+            resolve(list.length > 0 ? list : fallbackLocalSignatures());
+          };
+          req.onerror = () => resolve(fallbackLocalSignatures());
+        });
+      } catch {
+        return fallbackLocalSignatures();
+      }
+    }
+
+    function fallbackLocalSignatures() {
+      try {
+        const list = JSON.parse(localStorage.getItem('arzi_signatures_v1')) || [];
+        return Array.isArray(list) ? list.filter(isValidSignatureDataUrl) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    async function openSignaturePicker() {
+      const signatures = await loadSignaturesFromVault();
+      const grid = el('sigModalGrid');
+      grid.innerHTML = '';
+
+      if (signatures.length === 0) {
+        grid.innerHTML = '<p style="font-size:0.8rem; color:#888;">No signatures found in your vault. Create one on the leave form page first.</p>';
+      } else {
+        signatures.forEach(dataUrl => {
+          const card = document.createElement('div');
+          card.className = 'sig-card';
+          const img = document.createElement('img');
+          img.src = dataUrl;
+          card.appendChild(img);
+          card.addEventListener('click', () => {
+            insertSignatureAtCursor(dataUrl);
+            el('sigPickerModal').style.display = 'none';
+          });
+          grid.appendChild(card);
+        });
+      }
+      el('sigPickerModal').style.display = 'flex';
+    }
+
+    function insertSignatureAtCursor(dataUrl) {
+      if (!isValidSignatureDataUrl(dataUrl)) return;
+      const range = quill.getSelection(true);
+      quill.insertEmbed(range.index, 'image', dataUrl);
+      quill.setSelection(range.index + 1);
+    }
+
+    el('btnInsertSig').addEventListener('click', openSignaturePicker);
+    el('sigPickerClose').addEventListener('click', () => {
+      el('sigPickerModal').style.display = 'none';
+    });
+
+    /* ---------- Ruled Lines & Margins Controls ---------- */
+    el('toggleRuled').addEventListener('change', e => {
+      el('editor-body').classList.toggle('ruled-paper', e.target.checked);
+    });
+    el('toggleMargin').addEventListener('change', e => {
+      el('editor-body').classList.toggle('ruled-margin', e.target.checked);
+    });
+
+    /* ---------- Word Count & Dynamic Page Calculation ---------- */
+    function updateCounters() {
+      const text = quill.getText();
+      const chars = text.replace(/\n/g, '').length;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      el('textStats').textContent = `${words} words • ${chars} characters`;
+
+      const editorNode = document.querySelector('#editor-body .ql-editor');
+      const printableHeight = getStandardPagePixelHeight();
+      const currentScrollHeight = editorNode.scrollHeight;
+      const pages = Math.max(1, Math.ceil(currentScrollHeight / printableHeight));
+      el('pageStats').textContent = `Page 1 of ${pages}`;
+    }
+
+    function getStandardPagePixelHeight() {
+      const sel = el('pageSize');
+      const ratio = parseFloat(sel.selectedOptions[0].dataset.ratio);
+      const width = document.querySelector('.page-container').clientWidth;
+      return Math.round(width / ratio);
+    }
+
+    quill.on('text-change', () => {
+      updateCounters();
+      autoSaveDraft();
+    });
+
+    function autoSaveDraft() {
+      try {
+        localStorage.setItem('arzi_editor_draft', JSON.stringify(quill.getContents()));
+      } catch (e) {}
+    }
+
+    function loadDraft() {
+      try {
+        const saved = localStorage.getItem('arzi_editor_draft');
+        if (saved) quill.setContents(JSON.parse(saved));
+      } catch (e) {}
+    }
+
+    /* ---------- Multi-Page Slicing & High-Definition PDF Generation ---------- */
+    async function captureFullPaperCanvas() {
+      const editorNode = document.querySelector('#editor-body .ql-editor');
+      const clone = editorNode.cloneNode(true);
+
+      clone.style.position = 'fixed';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      clone.style.width = editorNode.clientWidth + 'px';
+      clone.style.height = 'auto';
+      clone.style.minHeight = 'auto';
+      clone.style.maxHeight = 'none';
+      clone.style.overflow = 'visible';
+      clone.style.background = '#ffffff';
+
+      // Keep ruled styles if checked
+      if (el('toggleRuled').checked) {
+        clone.style.backgroundImage = 'repeating-linear-gradient(transparent, transparent 31px, #d4d9e2 31px, #d4d9e2 32px)';
+        clone.style.backgroundSize = '100% 32px';
       }
 
-      const btn = document.getElementById('export-pdf');
-      btn.disabled = true;
-      btn.textContent = 'Preparing…';
-      status.textContent = 'Preparing export…';
+      document.body.appendChild(clone);
+
       try {
-        const canvas = await html2canvas(target, { scale: 2, backgroundColor: '#ffffff' });
-        const { jsPDF } = window.jspdf;
-        const formatKey = document.getElementById('pageSize').value;
-        const pdf = new jsPDF({ unit: 'pt', format: formatKey });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 36;
-        const imgWidthPt = pageWidth - margin * 2;
-        const contentHeightPt = pageHeight - margin * 2;
-
-        const pageCanvases = sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
-        pageCanvases.forEach((pc, i) => {
-          if (i > 0) pdf.addPage();
-          const sliceHeightPt = (pc.height / canvas.width) * imgWidthPt;
-          pdf.addImage(pc.toDataURL('image/png'), 'PNG', margin, margin, imgWidthPt, sliceHeightPt);
+        const canvas = await html2canvas(clone, {
+          scale: 2,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          logging: false
         });
-
-        pendingPdf = pdf;
-
-        const wrap = document.getElementById('pdfPreviewPages');
-        wrap.innerHTML = '';
-        pageCanvases.forEach((pc, i) => {
-          const label = document.createElement('div');
-          label.className = 'pdf-page-label';
-          label.textContent = `Page ${i + 1} of ${pageCanvases.length}`;
-          const img = document.createElement('img');
-          img.src = pc.toDataURL('image/png');
-          wrap.appendChild(label);
-          wrap.appendChild(img);
-        });
-
-        document.getElementById('pdfModal').style.display = 'flex';
+        return canvas;
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save as PDF';
-        status.textContent = '';
+        document.body.removeChild(clone);
       }
     }
 
@@ -434,6 +750,7 @@
       const pagePxHeight = Math.max(1, Math.floor(contentHeightPt * pxPerPt));
       const pages = [];
       let y = 0;
+
       while (y < canvas.height) {
         const sliceH = Math.min(pagePxHeight, canvas.height - y);
         const pageCanvas = document.createElement('canvas');
@@ -451,24 +768,78 @@
 
     let pendingPdf = null;
 
-    document.getElementById('pdfModalClose').addEventListener('click', () => {
-      document.getElementById('pdfModal').style.display = 'none';
-    });
-    document.getElementById('pdfModalDownload').addEventListener('click', () => {
-      if (pendingPdf) pendingPdf.save('application.pdf');
-    });
+    async function exportAs(type) {
+      const btn = el(type === 'image' ? 'export-image' : 'export-pdf');
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
 
-    document.getElementById('pageSize').addEventListener('change', applyPageMinHeight);
+      try {
+        const canvas = await captureFullPaperCanvas();
 
-    function applyPageMinHeight() {
-      const sel = document.getElementById('pageSize');
-      const ratio = parseFloat(sel.selectedOptions[0].dataset.ratio);
-      const width = document.querySelector('.page').clientWidth;
-      document.querySelector('.ql-editor').style.minHeight = Math.round(width / ratio) + 'px';
+        if (type === 'image') {
+          const link = document.createElement('a');
+          link.download = 'application-letter.png';
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const formatKey = el('pageSize').value;
+        const pdf = new jsPDF({ unit: 'pt', format: formatKey });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 36;
+        const imgWidthPt = pageWidth - margin * 2;
+        const contentHeightPt = pageHeight - margin * 2;
+
+        const pageCanvases = sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
+        pageCanvases.forEach((pc, i) => {
+          if (i > 0) pdf.addPage();
+          const sliceHeightPt = (pc.height / canvas.width) * imgWidthPt;
+          pdf.addImage(pc.toDataURL('image/png'), 'PNG', margin, margin, imgWidthPt, sliceHeightPt);
+        });
+
+        pendingPdf = pdf;
+
+        const wrap = el('pdfPreviewPages');
+        wrap.innerHTML = '';
+        pageCanvases.forEach((pc, i) => {
+          const label = document.createElement('div');
+          label.className = 'pdf-page-label';
+          label.textContent = `Page ${i + 1} of ${pageCanvases.length}`;
+          const img = document.createElement('img');
+          img.src = pc.toDataURL('image/png');
+          wrap.appendChild(label);
+          wrap.appendChild(img);
+        });
+
+        el('pdfModal').style.display = 'flex';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = type === 'image' ? 'Save as Image' : 'Save as PDF';
+      }
     }
 
-    document.getElementById('export-image').addEventListener('click', () => exportAs('image'));
-    document.getElementById('export-pdf').addEventListener('click', () => exportAs('pdf'));
+    el('pdfModalClose').addEventListener('click', () => { el('pdfModal').style.display = 'none'; });
+    el('pdfModalDownload').addEventListener('click', () => {
+      if (pendingPdf) pendingPdf.save('application-letter.pdf');
+    });
+
+    el('pageSize').addEventListener('change', () => {
+      const printableH = getStandardPagePixelHeight();
+      document.querySelector('#editor-body .ql-editor').style.minHeight = printableH + 'px';
+      updateCounters();
+    });
+
+    el('export-image').addEventListener('click', () => exportAs('image'));
+    el('export-pdf').addEventListener('click', () => exportAs('pdf'));
+
+    // Initialization
+    loadDraft();
+    updateCounters();
+    const initH = getStandardPagePixelHeight();
+    document.querySelector('#editor-body .ql-editor').style.minHeight = initH + 'px';
   </script>
 
 </body>
