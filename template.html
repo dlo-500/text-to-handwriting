@@ -320,22 +320,56 @@
     margin: 0 auto;
     font-family: var(--font-display);
     font-size: 16px;
-    line-height: 1.75;
+    line-height: 1.7;
     color: var(--ink);
     overflow-y: auto;
     text-align: left;
   }
   .paper p { margin: 0 0 0.9rem; }
   .paper .subject { font-weight: 600; }
-  .paper .sig-line { margin-top: 0.5rem; }
-  .paper .sig-img { max-height: 55px; max-width: 160px; display: block; margin-bottom: 0.2rem; }
+  .paper .sig-line { margin-top: 0.75rem; }
+  .paper .sig-img {
+    max-height: 58px;
+    max-width: 170px;
+    display: block;
+    margin: 0.45rem 0;
+    object-fit: contain;
+  }
   .paper .copy-block { margin-top: 1.6rem; font-size: 0.9em; }
-  .paper table.formI { width: 100%; border-collapse: collapse; font-size: 0.85em; text-align: left; }
-  .paper table.formI td { border: 1px solid #999; padding: 0.4rem 0.5rem; vertical-align: top; }
+  .paper table.formI {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+    text-align: left;
+  }
+  .paper table.formI td {
+    border: 1px solid #999;
+    padding: 0.4rem 0.5rem;
+    vertical-align: top;
+    text-align: left !important;
+  }
   .paper table.formI td.num { width: 2.2rem; }
 
   @media (max-width: 760px) {
     .layout { flex-direction: column; }
+  }
+
+  @media print {
+    body * { visibility: hidden; }
+    .paper, .paper * { visibility: visible; }
+    .paper {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: visible !important;
+      aspect-ratio: auto !important;
+    }
   }
 
   .pdf-modal {
@@ -655,7 +689,7 @@
           <span>px</span>
         </div>
 
-       <div class="align-toolbar">
+        <div class="align-toolbar">
           <button type="button" class="btn-align active" data-align="left" title="Align Left">Left</button>
           <button type="button" class="btn-align" data-align="justify" title="Justify">Justify</button>
         </div>
@@ -709,6 +743,42 @@
       if (!iso) return '__.__.____';
       const [y, m, d] = iso.split('-');
       return `${d}.${m}.${y}`;
+    }
+
+    function initDefaultDates() {
+      const today = new Date().toISOString().split('T')[0];
+      if (!el('dateSingle').value) el('dateSingle').value = today;
+      if (!el('dateFrom').value) el('dateFrom').value = today;
+      if (!el('dateTo').value) el('dateTo').value = today;
+    }
+
+    const PROFILE_FIELDS = [
+      'applicantName', 'designationPreset', 'designationCustom',
+      'attendanceId', 'copyTo', 'fiOffice', 'fiPost'
+    ];
+
+    function saveUserProfile() {
+      const profile = {};
+      PROFILE_FIELDS.forEach(f => {
+        if (el(f)) profile[f] = el(f).value;
+      });
+      try { localStorage.setItem('arzi_user_profile', JSON.stringify(profile)); } catch (e) {}
+    }
+
+    function loadUserProfile() {
+      try {
+        const raw = localStorage.getItem('arzi_user_profile');
+        if (!raw) return;
+        const profile = JSON.parse(raw);
+        PROFILE_FIELDS.forEach(f => {
+          if (profile[f] !== undefined && el(f)) {
+            el(f).value = profile[f];
+          }
+        });
+        if (el('designationPreset').value === 'custom') {
+          el('designationCustomField').style.display = '';
+        }
+      } catch (e) {}
     }
 
     function currentReason() {
@@ -802,7 +872,7 @@
         <p class="subject">Subject: — ${subject}</p>
         <p>Sir,</p>
         <p>${body}</p>
-        <p class="sig-line">Your's faithfully,<br>${sigHtml}${name},<br>(${designation})${attLine}</p>
+        <p class="sig-line">Yours faithfully,<br>${sigHtml}${name},<br>(${designation})${attLine}</p>
         <div class="copy-block">Copy to the:-<br>${copyTo.replace(/\n/g, '<br>')}</div>
       `;
     }
@@ -845,8 +915,8 @@
       document.querySelectorAll('#leaveType, #dateSingle, #dateFrom, #dateTo, #numDays, #session, #reasonPreset, #reasonCustom, #duration, #addresseePreset, #addresseeCustom, #applicantName, #designationPreset, #designationCustom, #attendanceId, #copyTo, #fiPost, #fiOffice, #fiGrounds, #fiPrefix, #fiAddress')
         .forEach(node => {
           if (!node) return;
-          node.addEventListener('input', () => { render(); });
-          node.addEventListener('change', () => { render(); });
+          node.addEventListener('input', () => { render(); saveUserProfile(); });
+          node.addEventListener('change', () => { render(); saveUserProfile(); });
         });
 
       el('leaveType').addEventListener('change', e => {
@@ -1371,6 +1441,8 @@
     el('fontColor').addEventListener('input', applyPaperStyle);
     el('pageSize').addEventListener('change', applyPaperStyle);
 
+    loadUserProfile();
+    initDefaultDates();
     toggleFieldsForType('casual1');
     bindLive();
     renderLibrary();
