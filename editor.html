@@ -17,15 +17,48 @@
 <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 
 <style>
-  body { background: var(--paper); }
+  :root {
+    --bg-page: #fbf9f4;
+    --bg-surface: #f4efe4;
+    --bg-card: #ffffff;
+    --border-color: #dcd6c8;
+    --text-color: #23283a;
+    --text-soft: #636b78;
+    --maroon-theme: #7a2331;
+    --maroon-hover: #5d1a24;
+    --line-grid: #d4d9e2;
+    --margin-rule: #e78c8c;
+  }
+
+  body.dark-mode {
+    --bg-page: #15161a;
+    --bg-surface: #1e2025;
+    --bg-card: #282a30;
+    --border-color: #3b3f4a;
+    --text-color: #e6e8ee;
+    --text-soft: #9aa1b0;
+    --maroon-theme: #a83849;
+    --maroon-hover: #c4475b;
+    --line-grid: #383c48;
+    --margin-rule: #69323a;
+  }
+
+  body {
+    background: var(--bg-page);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+    transition: background 0.25s, color 0.25s;
+  }
 
   .editor-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.85rem 1.25rem;
-    border-bottom: 1px solid var(--line);
-    background: var(--paper-raised);
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-surface);
     flex-wrap: wrap;
     gap: 0.75rem;
   }
@@ -33,51 +66,67 @@
   .header-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.85rem;
   }
+
+  .theme-toggle-btn {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--text-color);
+  }
+  body.dark-mode .theme-toggle-btn {
+    background: #2b2e38;
+    border-color: #434855;
+  }
+
   .back-link, .template-nav-link {
     font-size: 0.85rem;
-    color: var(--ink-soft);
+    color: var(--text-soft);
     text-decoration: none;
     font-weight: 500;
   }
   .template-nav-link {
-    color: var(--maroon);
+    color: var(--maroon-theme);
     font-weight: 600;
-    border-left: 1px solid var(--line);
-    padding-left: 1rem;
+    border-left: 1px solid var(--border-color);
+    padding-left: 0.85rem;
   }
-  .back-link:hover, .template-nav-link:hover { color: var(--maroon-deep); text-decoration: underline; }
+  .back-link:hover, .template-nav-link:hover { color: var(--maroon-hover); text-decoration: underline; }
 
-  .export-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+  .export-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
   .export-actions select {
     padding: 0.45rem 0.6rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-family: var(--font-body);
     font-size: 0.82rem;
-    background: #fff;
-    color: var(--ink);
+    background: var(--bg-card);
+    color: var(--text-color);
   }
 
   .btn {
-    font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    padding: 0.5rem 0.9rem;
-    border-radius: 3px;
-    border: 1px solid var(--line);
-    background: var(--paper-raised);
-    color: var(--ink);
+    padding: 0.48rem 0.85rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-color);
     cursor: pointer;
   }
   .btn.primary {
-    background: var(--maroon);
-    border-color: var(--maroon);
-    color: var(--paper-raised);
+    background: var(--maroon-theme);
+    border-color: var(--maroon-theme);
+    color: #ffffff;
   }
-  .btn.primary:hover { background: var(--maroon-deep); }
-  .btn:hover { border-color: var(--brass); }
+  .btn.primary:hover { background: var(--maroon-hover); }
 
   .editor-shell {
     display: flex;
@@ -88,82 +137,177 @@
 
   .page-container {
     width: 100%;
-    max-width: 760px;
+    max-width: 780px;
   }
 
   #toolbar {
-    background: var(--paper-raised);
-    border: 1px solid var(--line);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
     border-bottom: none;
     border-radius: 6px 6px 0 0;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.5rem;
+    padding: 0.45rem;
+  }
+
+  .ql-toolbar.ql-snow {
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+    font-family: inherit;
+    padding: 0.45rem;
+    background: var(--bg-surface);
+  }
+
+  .word-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-left: 0.3rem;
+    border-left: 1px solid var(--border-color);
+    margin-left: 0.25rem;
+  }
+
+  .word-ctrl-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-soft);
+  }
+
+  .word-ctrl-item input[type="number"] {
+    width: 46px;
+    padding: 0.25rem;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    background: var(--bg-card);
+    color: var(--text-color);
   }
 
   .paper-style-group {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     margin-left: 0.4rem;
-    font-size: 0.78rem;
+    border-left: 1px solid var(--border-color);
+    padding-left: 0.4rem;
+    font-size: 0.76rem;
     font-weight: 600;
-    color: var(--ink-soft);
+    color: var(--text-soft);
   }
 
   .paper-style-group label {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.2rem;
     cursor: pointer;
   }
 
-  #editor-body {
-    background: #ffffff;
-    border: 1px solid var(--line);
-    border-radius: 0 0 6px 6px;
-    box-shadow: 0 10px 24px -14px rgba(35,40,58,0.25);
-    min-height: 840px;
+  /* Editor Canvas Container */
+  .editor-canvas-wrapper {
     position: relative;
-    transition: background 0.2s ease;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 12px 28px -14px rgba(35,40,58,0.22);
+    overflow: hidden;
   }
 
-  /* Ruled paper styles */
-  #editor-body.ruled-paper {
+  #editor-body {
+    background: transparent;
+    border: none;
+    min-height: 850px;
+    position: relative;
+  }
+
+  /* Ruled lines & margins */
+  .editor-canvas-wrapper.ruled-paper {
     background-image: repeating-linear-gradient(
       transparent,
       transparent 31px,
-      #d4d9e2 31px,
-      #d4d9e2 32px
+      var(--line-grid) 31px,
+      var(--line-grid) 32px
     );
     background-size: 100% 32px;
   }
 
-  #editor-body.ruled-margin {
-    border-left: 2px solid #e78c8c;
-    box-shadow: -24px 0 0 0 #fff, -25px 0 0 0 #e2e4e9, 0 10px 24px -14px rgba(35,40,58,0.25);
+  .editor-canvas-wrapper.ruled-margin {
+    box-shadow: inset 54px 0 0 0 transparent, inset 55px 0 0 0 var(--margin-rule), 0 12px 28px -14px rgba(35,40,58,0.22);
   }
 
   .ql-editor {
-    min-height: 840px;
+    min-height: 850px;
     padding: 3rem 2.75rem;
     font-family: 'Lora', serif;
     font-size: 16px;
     line-height: 2;
     color: #23283a;
+    box-sizing: border-box;
   }
   .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
-  .ql-editor img {
+
+  /* Draggable Floating Signature Element */
+  .floating-signature {
+    position: absolute;
+    border: 1px dashed var(--maroon-theme);
+    background: rgba(255, 255, 255, 0.4);
+    padding: 4px;
+    user-select: none;
+    cursor: move;
+    z-index: 100;
+    max-width: 320px;
+    max-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+  }
+  .floating-signature img {
+    max-width: 100%;
+    max-height: 100%;
+    pointer-events: none;
     display: block;
-    max-height: 65px;
-    max-width: 180px;
-    margin: 0.5rem 0;
-    object-fit: contain;
+  }
+  .floating-signature .sig-del-btn {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    background: var(--maroon-theme);
+    color: #fff;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+  .floating-signature .sig-resize-handle {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 9px;
+    height: 9px;
+    background: var(--maroon-theme);
+    cursor: se-resize;
   }
 
-  /* Font whitelist styles */
+  /* Custom Toolbar Sign button */
+  .ql-signature::before {
+    content: '✍️ Sign';
+    font-family: var(--font-body, system-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  /* Fonts */
   .ql-font-arial { font-family: Arial, sans-serif; }
   .ql-font-georgia { font-family: Georgia, serif; }
   .ql-font-lora { font-family: 'Lora', serif; }
@@ -190,123 +334,58 @@
   .ql-font-yellowtail { font-family: 'Yellowtail', cursive; }
   .ql-font-homemade { font-family: 'Homemade Apple', cursive; }
 
-  /* Font Picker labels */
-  .ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before { content: 'Georgia'; }
-  .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before { content: 'Arial'; }
-  .ql-picker.ql-font .ql-picker-label[data-value="lora"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="lora"]::before { content: 'Lora'; }
-  .ql-picker.ql-font .ql-picker-label[data-value="playfair"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="playfair"]::before { content: 'Playfair Display'; }
-  .ql-picker.ql-font .ql-picker-label[data-value="caveat"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="caveat"]::before { content: 'Caveat'; font-family: 'Caveat', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="caveatbrush"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="caveatbrush"]::before { content: 'Caveat Brush'; font-family: 'Caveat Brush', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="kalam"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="kalam"]::before { content: 'Kalam'; font-family: 'Kalam', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="shadows"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="shadows"]::before { content: 'Shadows Into Light'; font-family: 'Shadows Into Light', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="indie"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="indie"]::before { content: 'Indie Flower'; font-family: 'Indie Flower', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="patrick"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="patrick"]::before { content: 'Patrick Hand'; font-family: 'Patrick Hand', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="handlee"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="handlee"]::before { content: 'Handlee'; font-family: 'Handlee', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="gochi"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="gochi"]::before { content: 'Gochi Hand'; font-family: 'Gochi Hand', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="architects"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="architects"]::before { content: 'Architects Daughter'; font-family: 'Architects Daughter', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="covered"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="covered"]::before { content: 'Covered By Your Grace'; font-family: 'Covered By Your Grace', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="nanum"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="nanum"]::before { content: 'Nanum Pen Script'; font-family: 'Nanum Pen Script', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="marker"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="marker"]::before { content: 'Permanent Marker'; font-family: 'Permanent Marker', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="rocksalt"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="rocksalt"]::before { content: 'Rock Salt'; font-family: 'Rock Salt', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="dancing"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="dancing"]::before { content: 'Dancing Script'; font-family: 'Dancing Script', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="sacramento"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="sacramento"]::before { content: 'Sacramento'; font-family: 'Sacramento', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="satisfy"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="satisfy"]::before { content: 'Satisfy'; font-family: 'Satisfy', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="pacifico"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="pacifico"]::before { content: 'Pacifico'; font-family: 'Pacifico', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="greatvibes"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="greatvibes"]::before { content: 'Great Vibes'; font-family: 'Great Vibes', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="allura"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="allura"]::before { content: 'Allura'; font-family: 'Allura', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="yellowtail"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="yellowtail"]::before { content: 'Yellowtail'; font-family: 'Yellowtail', cursive; }
-  .ql-picker.ql-font .ql-picker-label[data-value="homemade"]::before,
-  .ql-picker.ql-font .ql-picker-item[data-value="homemade"]::before { content: 'Homemade Apple'; font-family: 'Homemade Apple', cursive; }
-
-  /* Custom quill toolbar button for signatures */
-  .ql-signature::before {
-    content: '✍️ Sign';
-    font-family: var(--font-body);
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
   .status-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.78rem;
-    color: var(--ink-soft);
+    color: var(--text-soft);
     padding: 0.6rem 0.5rem;
-    border-top: 1px solid var(--line-soft);
+    border-top: 1px solid var(--border-color);
   }
 
-  /* Signature insertion modal */
-  .sig-modal {
+  /* Modals */
+  .sig-modal, .pdf-modal {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(20,20,25,0.6);
+    background: rgba(20,20,25,0.65);
     z-index: 1200;
     align-items: center;
     justify-content: center;
     padding: 1.25rem;
   }
-  .sig-modal-inner {
+  .sig-modal-inner, .pdf-modal-inner {
     background: #fff;
     border-radius: 8px;
     width: 100%;
-    max-width: 580px;
+    max-width: 600px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 16px 36px rgba(0,0,0,0.3);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.3);
   }
-  .sig-modal-header {
+  .pdf-modal-inner { max-width: 800px; height: 90vh; }
+
+  .sig-modal-header, .pdf-modal-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--line);
-    font-family: var(--font-display);
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid #e2e4e9;
+    font-family: 'Playfair Display', Georgia, serif;
     font-size: 1rem;
-    color: var(--ink);
+    color: #23283a;
   }
-  .sig-modal-body {
-    padding: 1.25rem;
-    overflow-y: auto;
-  }
-  .sig-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    margin-top: 0.6rem;
-  }
+
+  .sig-modal-body { padding: 1.25rem; overflow-y: auto; }
+  .sig-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }
   .sig-card {
-    border: 1px solid var(--line);
+    border: 1px solid #dcd6c8;
     border-radius: 4px;
-    width: 96px;
-    height: 52px;
+    width: 100px;
+    height: 55px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -315,48 +394,11 @@
     overflow: hidden;
   }
   .sig-card:hover {
-    border-color: var(--maroon);
+    border-color: var(--maroon-theme);
     box-shadow: 0 0 0 2px rgba(122,35,49,0.2);
   }
-  .sig-card img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-  }
+  .sig-card img { max-width: 100%; max-height: 100%; object-fit: contain; }
 
-  /* PDF Preview Modal */
-  .pdf-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(20,20,25,0.6);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-  }
-  .pdf-modal-inner {
-    background: #fff;
-    border-radius: 8px;
-    width: 100%;
-    max-width: 780px;
-    height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .pdf-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1rem;
-    border-bottom: 1px solid var(--line);
-    font-family: var(--font-display);
-    font-size: 1rem;
-    color: var(--ink);
-  }
-  .pdf-modal-actions { display: flex; gap: 0.5rem; }
-  #pdfPreviewFrame { flex: 1; border: none; width: 100%; }
   #pdfPreviewPages {
     flex: 1;
     overflow-y: auto;
@@ -369,22 +411,16 @@
   }
   #pdfPreviewPages img {
     max-width: 100%;
-    width: 560px;
+    width: 580px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.4);
     display: block;
   }
-  .pdf-page-label {
-    color: #eee;
-    font-size: 0.72rem;
-    font-family: var(--font-body);
-    text-align: center;
-    margin-bottom: -0.6rem;
-  }
+  .pdf-page-label { color: #eee; font-size: 0.72rem; margin-bottom: -0.6rem; }
 
   @media print {
     body * { visibility: hidden; }
-    #editor-body, #editor-body * { visibility: visible; }
-    #editor-body {
+    .editor-canvas-wrapper, .editor-canvas-wrapper * { visibility: visible; }
+    .editor-canvas-wrapper {
       position: absolute;
       left: 0;
       top: 0;
@@ -392,6 +428,8 @@
       border: none !important;
       box-shadow: none !important;
     }
+    .floating-signature { border: none !important; }
+    .sig-del-btn, .sig-resize-handle { display: none !important; }
   }
 </style>
 </head>
@@ -399,8 +437,11 @@
 
   <div class="editor-header">
     <div class="header-left">
+      <button type="button" class="theme-toggle-btn" id="btnThemeToggle" title="Toggle Light / Dark Mode">
+        <span id="themeIcon">🌙</span> <span id="themeText">Dark</span>
+      </button>
       <a class="back-link" href="index.html">&larr; Back</a>
-      <a class="template-nav-link" href="template.html" title="Use official Leave Application Templates">Pre-formatted Leave Form &rarr;</a>
+      <a class="template-nav-link" href="template.html" title="Open formatted templates">Pre-formatted Leave Form &rarr;</a>
     </div>
     <div class="export-actions">
       <select id="pageSize">
@@ -419,7 +460,7 @@
       <div id="toolbar">
         <span class="ql-formats">
           <select class="ql-header">
-            <option selected>Body</option>
+            <option selected>Normal Text</option>
             <option value="1">Heading 1</option>
             <option value="2">Heading 2</option>
             <option value="3">Heading 3</option>
@@ -428,18 +469,18 @@
             <option value="lora" selected>Lora</option>
             <option value="arial">Arial</option>
             <option value="georgia">Georgia</option>
-            <option value="playfair">Playfair Display</option>
+            <option value="playfair">Playfair</option>
             <option value="caveat">Caveat</option>
             <option value="kalam">Kalam</option>
-            <option value="shadows">Shadows Into Light</option>
+            <option value="shadows">Shadows</option>
             <option value="indie">Indie Flower</option>
             <option value="patrick">Patrick Hand</option>
             <option value="handlee">Handlee</option>
             <option value="gochi">Gochi Hand</option>
-            <option value="architects">Architects Daughter</option>
-            <option value="covered">Covered By Your Grace</option>
-            <option value="nanum">Nanum Pen Script</option>
-            <option value="marker">Permanent Marker</option>
+            <option value="architects">Architects</option>
+            <option value="covered">Covered Grace</option>
+            <option value="nanum">Nanum Pen</option>
+            <option value="marker">Marker</option>
             <option value="rocksalt">Rock Salt</option>
             <option value="dancing">Dancing Script</option>
             <option value="sacramento">Sacramento</option>
@@ -472,14 +513,20 @@
 
         <span class="ql-formats">
           <select class="ql-color">
-            <option value="#23283a" selected></option>
-            <option value="#003366"></option>
-            <option value="#1a365d"></option>
-            <option value="#7a2331"></option>
-            <option value="#8b0000"></option>
-            <option value="#2e7d32"></option>
+            <option value="#23283a" selected>Dark Ink</option>
+            <option value="#003366">Royal Blue</option>
+            <option value="#1a365d">Gel Pen Blue</option>
+            <option value="#7a2331">Formal Maroon</option>
+            <option value="#8b0000">Deep Red</option>
+            <option value="#1e4620">Official Green</option>
           </select>
-          <select class="ql-background"></select>
+          <select class="ql-background">
+            <option selected>Transparent</option>
+            <option value="#fff9c4">Yellow Highlight</option>
+            <option value="#c8e6c9">Green Highlight</option>
+            <option value="#ffcdd2">Pink Highlight</option>
+            <option value="#e1f5fe">Blue Highlight</option>
+          </select>
         </span>
 
         <span class="ql-formats">
@@ -497,17 +544,30 @@
         </span>
 
         <span class="ql-formats">
-          <button type="button" class="ql-signature" id="btnInsertSig" title="Insert Saved Signature"></button>
-          <button class="ql-clean"></button>
+          <button type="button" class="ql-signature" id="btnInsertSig" title="Insert Draggable Signature"></button>
+          <button class="ql-clean" title="Clear Formatting"></button>
         </span>
 
+        <div class="word-controls">
+          <div class="word-ctrl-item" title="Line Spacing (Line-Height)">
+            <span>Line:</span>
+            <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0">
+          </div>
+          <div class="word-ctrl-item" title="Letter Spacing">
+            <span>Spacing:</span>
+            <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0">
+          </div>
+        </div>
+
         <div class="paper-style-group">
-          <label><input type="checkbox" id="toggleRuled"> Lines</label>
-          <label><input type="checkbox" id="toggleMargin"> Margin</label>
+          <label><input type="checkbox" id="toggleRuled" checked> Lines</label>
+          <label><input type="checkbox" id="toggleMargin" checked> Margin</label>
         </div>
       </div>
 
-      <div id="editor-body"></div>
+      <div class="editor-canvas-wrapper ruled-paper ruled-margin" id="canvasWrapper">
+        <div id="editor-body"></div>
+      </div>
 
       <div class="status-bar">
         <span id="pageStats">Page 1 of 1</span>
@@ -520,14 +580,18 @@
   <div class="sig-modal" id="sigPickerModal">
     <div class="sig-modal-inner">
       <div class="sig-modal-header">
-        <span>Insert Signature</span>
+        <span>Insert Signature (Draggable / Tight)</span>
         <button type="button" class="btn" id="sigPickerClose">&times;</button>
       </div>
       <div class="sig-modal-body">
-        <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:0;">Select a signature from your local vault:</p>
+        <p style="font-size:0.8rem; color:var(--text-soft); margin-top:0;">
+          Select a signature to place it as a draggable element anywhere on your application:
+        </p>
         <div class="sig-grid" id="sigModalGrid"></div>
         <div style="margin-top:1.25rem; display:flex; justify-content:space-between; align-items:center;">
-          <a href="template.html" class="btn-small" style="text-decoration:none; color:var(--maroon);">+ Manage / Upload signatures in Template page</a>
+          <a href="template.html" class="btn-small" style="text-decoration:none; font-size:0.8rem; color:var(--maroon-theme); font-weight:600;">
+            + Upload new signature in Template Form
+          </a>
         </div>
       </div>
     </div>
@@ -538,12 +602,11 @@
     <div class="pdf-modal-inner">
       <div class="pdf-modal-header">
         <span>PDF preview</span>
-        <div class="pdf-modal-actions">
-          <button type="button" class="btn primary" id="pdfModalDownload">Download</button>
+        <div style="display:flex; gap:0.5rem;">
+          <button type="button" class="btn primary" id="pdfModalDownload">Download PDF</button>
           <button type="button" class="btn" id="pdfModalClose">Close</button>
         </div>
       </div>
-      <iframe id="pdfPreviewFrame" style="display:none;"></iframe>
       <div id="pdfPreviewPages"></div>
     </div>
   </div>
@@ -555,7 +618,24 @@
   <script>
     const el = id => document.getElementById(id);
 
-    // Font Whitelist Registration
+    /* ---------- Light / Dark Mode Toggle ---------- */
+    function initTheme() {
+      const savedTheme = localStorage.getItem('arzi_editor_theme') || 'light';
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        el('themeIcon').textContent = '☀️';
+        el('themeText').textContent = 'Light';
+      }
+    }
+    el('btnThemeToggle').addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-mode');
+      localStorage.setItem('arzi_editor_theme', isDark ? 'dark' : 'light');
+      el('themeIcon').textContent = isDark ? '☀️' : '🌙';
+      el('themeText').textContent = isDark ? 'Light' : 'Dark';
+    });
+    initTheme();
+
+    /* ---------- Quill Editor Configuration ---------- */
     const Font = Quill.import('formats/font');
     Font.whitelist = [
       'arial', 'georgia', 'lora', 'playfair', 'caveat', 'caveatbrush', 'kalam',
@@ -565,7 +645,6 @@
     ];
     Quill.register(Font, true);
 
-    // Numeric Exact Font Sizes
     const Size = Quill.import('attributors/style/size');
     Size.whitelist = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px'];
     Quill.register(Size, true);
@@ -573,10 +652,41 @@
     const quill = new Quill('#editor-body', {
       theme: 'snow',
       modules: { toolbar: '#toolbar' },
-      placeholder: 'Start typing your application or official letter freely here…'
+      placeholder: 'Start writing your application or letter here…'
     });
 
-    /* ---------- Signature Vault Shared Retrieval (IndexedDB) ---------- */
+    /* ---------- Fine-Grained Word Controls: Line Height & Letter Spacing ---------- */
+    el('lineHeightInput').addEventListener('input', e => {
+      const val = parseFloat(e.target.value) || 2.0;
+      document.querySelector('#editor-body .ql-editor').style.lineHeight = val;
+      updateRuledBackground();
+    });
+
+    el('letterSpacingInput').addEventListener('input', e => {
+      const val = parseFloat(e.target.value) || 0;
+      document.querySelector('#editor-body .ql-editor').style.letterSpacing = val + 'px';
+    });
+
+    function updateRuledBackground() {
+      const lh = parseFloat(el('lineHeightInput').value) || 2.0;
+      const fs = 16;
+      const rowHeight = Math.round(fs * lh);
+      const wrapper = el('canvasWrapper');
+      wrapper.style.backgroundImage = `repeating-linear-gradient(transparent, transparent ${rowHeight - 1}px, var(--line-grid) ${rowHeight - 1}px, var(--line-grid) ${rowHeight}px)`;
+      wrapper.style.backgroundSize = `100% ${rowHeight}px`;
+    }
+
+    /* ---------- Ruled Lines & Margins Controls ---------- */
+    el('toggleRuled').addEventListener('change', e => {
+      el('canvasWrapper').classList.toggle('ruled-paper', e.target.checked);
+      if (!e.target.checked) el('canvasWrapper').style.backgroundImage = 'none';
+      else updateRuledBackground();
+    });
+    el('toggleMargin').addEventListener('change', e => {
+      el('canvasWrapper').classList.toggle('ruled-margin', e.target.checked);
+    });
+
+    /* ---------- Shared IndexedDB Signature Vault Integration ---------- */
     const DB_NAME = 'ArziSignaturesDB';
     const STORE_NAME = 'signatures';
 
@@ -632,7 +742,7 @@
       grid.innerHTML = '';
 
       if (signatures.length === 0) {
-        grid.innerHTML = '<p style="font-size:0.8rem; color:#888;">No signatures found in your vault. Create one on the leave form page first.</p>';
+        grid.innerHTML = '<p style="font-size:0.8rem; color:#888;">No saved signatures found in your vault. Create or crop one in the Leave Form first.</p>';
       } else {
         signatures.forEach(dataUrl => {
           const card = document.createElement('div');
@@ -641,7 +751,7 @@
           img.src = dataUrl;
           card.appendChild(img);
           card.addEventListener('click', () => {
-            insertSignatureAtCursor(dataUrl);
+            createFloatingSignature(dataUrl);
             el('sigPickerModal').style.display = 'none';
           });
           grid.appendChild(card);
@@ -650,27 +760,81 @@
       el('sigPickerModal').style.display = 'flex';
     }
 
-    function insertSignatureAtCursor(dataUrl) {
+    /* ---------- Draggable / Free-Floating Signature Implementation ---------- */
+    function createFloatingSignature(dataUrl) {
       if (!isValidSignatureDataUrl(dataUrl)) return;
-      const range = quill.getSelection(true);
-      quill.insertEmbed(range.index, 'image', dataUrl);
-      quill.setSelection(range.index + 1);
+      const wrapper = el('canvasWrapper');
+
+      const sigBox = document.createElement('div');
+      sigBox.className = 'floating-signature';
+      sigBox.style.left = '320px';
+      sigBox.style.top = '480px';
+      sigBox.style.width = '140px';
+
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      sigBox.appendChild(img);
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'sig-del-btn';
+      delBtn.innerHTML = '&times;';
+      delBtn.title = 'Remove signature';
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        wrapper.removeChild(sigBox);
+      });
+      sigBox.appendChild(delBtn);
+
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'sig-resize-handle';
+      sigBox.appendChild(resizeHandle);
+
+      // Dragging logic
+      let isDragging = false, startX, startY, initLeft, initTop;
+      sigBox.addEventListener('mousedown', e => {
+        if (e.target === delBtn || e.target === resizeHandle) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        initLeft = sigBox.offsetLeft;
+        initTop = sigBox.offsetTop;
+        e.preventDefault();
+      });
+
+      // Resizing logic
+      let isResizing = false, initW, initMouseX;
+      resizeHandle.addEventListener('mousedown', e => {
+        isResizing = true;
+        initW = sigBox.offsetWidth;
+        initMouseX = e.clientX;
+        e.stopPropagation();
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (isDragging) {
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          sigBox.style.left = Math.max(0, initLeft + dx) + 'px';
+          sigBox.style.top = Math.max(0, initTop + dy) + 'px';
+        } else if (isResizing) {
+          const dw = e.clientX - initMouseX;
+          sigBox.style.width = Math.max(60, initW + dw) + 'px';
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+        isResizing = false;
+      });
+
+      wrapper.appendChild(sigBox);
     }
 
     el('btnInsertSig').addEventListener('click', openSignaturePicker);
-    el('sigPickerClose').addEventListener('click', () => {
-      el('sigPickerModal').style.display = 'none';
-    });
+    el('sigPickerClose').addEventListener('click', () => { el('sigPickerModal').style.display = 'none'; });
 
-    /* ---------- Ruled Lines & Margins Controls ---------- */
-    el('toggleRuled').addEventListener('change', e => {
-      el('editor-body').classList.toggle('ruled-paper', e.target.checked);
-    });
-    el('toggleMargin').addEventListener('change', e => {
-      el('editor-body').classList.toggle('ruled-margin', e.target.checked);
-    });
-
-    /* ---------- Word Count & Dynamic Page Calculation ---------- */
+    /* ---------- Page Calculation & Word Counters ---------- */
     function updateCounters() {
       const text = quill.getText();
       const chars = text.replace(/\n/g, '').length;
@@ -693,42 +857,33 @@
 
     quill.on('text-change', () => {
       updateCounters();
-      autoSaveDraft();
+      try { localStorage.setItem('arzi_editor_draft_v2', JSON.stringify(quill.getContents())); } catch (e) {}
     });
-
-    function autoSaveDraft() {
-      try {
-        localStorage.setItem('arzi_editor_draft', JSON.stringify(quill.getContents()));
-      } catch (e) {}
-    }
 
     function loadDraft() {
       try {
-        const saved = localStorage.getItem('arzi_editor_draft');
+        const saved = localStorage.getItem('arzi_editor_draft_v2');
         if (saved) quill.setContents(JSON.parse(saved));
       } catch (e) {}
     }
 
-    /* ---------- Multi-Page Slicing & High-Definition PDF Generation ---------- */
-    async function captureFullPaperCanvas() {
-      const editorNode = document.querySelector('#editor-body .ql-editor');
-      const clone = editorNode.cloneNode(true);
+    /* ---------- Export Engine: Full Capture With Lines, Margin & Floating Signatures ---------- */
+    async function captureFullDocumentCanvas() {
+      const wrapper = el('canvasWrapper');
+      const clone = wrapper.cloneNode(true);
+
+      // Clean interactive markers from clone
+      clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(el => el.remove());
+      clone.querySelectorAll('.floating-signature').forEach(el => el.style.border = 'none');
 
       clone.style.position = 'fixed';
       clone.style.left = '-9999px';
       clone.style.top = '0';
-      clone.style.width = editorNode.clientWidth + 'px';
+      clone.style.width = wrapper.clientWidth + 'px';
       clone.style.height = 'auto';
-      clone.style.minHeight = 'auto';
-      clone.style.maxHeight = 'none';
       clone.style.overflow = 'visible';
-      clone.style.background = '#ffffff';
-
-      // Keep ruled styles if checked
-      if (el('toggleRuled').checked) {
-        clone.style.backgroundImage = 'repeating-linear-gradient(transparent, transparent 31px, #d4d9e2 31px, #d4d9e2 32px)';
-        clone.style.backgroundSize = '100% 32px';
-      }
+      clone.style.boxShadow = 'none';
+      clone.style.backgroundColor = '#ffffff';
 
       document.body.appendChild(clone);
 
@@ -774,11 +929,11 @@
       btn.textContent = 'Preparing…';
 
       try {
-        const canvas = await captureFullPaperCanvas();
+        const canvas = await captureFullDocumentCanvas();
 
         if (type === 'image') {
           const link = document.createElement('a');
-          link.download = 'application-letter.png';
+          link.download = 'handwritten-document.png';
           link.href = canvas.toDataURL('image/png');
           link.click();
           return;
@@ -823,7 +978,7 @@
 
     el('pdfModalClose').addEventListener('click', () => { el('pdfModal').style.display = 'none'; });
     el('pdfModalDownload').addEventListener('click', () => {
-      if (pendingPdf) pendingPdf.save('application-letter.pdf');
+      if (pendingPdf) pendingPdf.save('handwritten-document.pdf');
     });
 
     el('pageSize').addEventListener('change', () => {
@@ -838,6 +993,7 @@
     // Initialization
     loadDraft();
     updateCounters();
+    updateRuledBackground();
     const initH = getStandardPagePixelHeight();
     document.querySelector('#editor-body .ql-editor').style.minHeight = initH + 'px';
   </script>
