@@ -924,11 +924,14 @@
         body = `With high regards, it is submitted that due to ${reason}, I am not able to attend my duties today, i.e., on ${date}. So, it is requested to kindly sanction a one day casual leave in my favour, with permission to leave the station.<br>Same shall be your most kindness.`;
       } else if (type === 'earnedLetter') {
         const from = fmtDate(el('dateFrom').value);
-        const duration = el('duration').value || '[duration]';
-        subject = `Application for Earned Leave for ${duration}`;
+        const to = fmtDate(el('dateTo').value);
+        const rawDur = el('duration').value.trim();
+        // If user enters just a number (e.g., 30), automatically append "days"
+        const durationStr = rawDur ? (/^\d+$/.test(rawDur) ? `${rawDur} days` : rawDur) : '[duration]';
+        
+        subject = `Application for Earned Leave for ${durationStr}.`;
         const attClause = attId ? `, Attendance ID <b>${attId}</b>,` : ',';
-        body = `Most respectfully, I, <b>${name}</b>, ${designation}${attClause} request that I may kindly be granted <b>Earned Leave for a period of ${duration} w.e.f ${from}</b>, on account of ${reason}.<br>I shall be highly obliged for your kind consideration and sanction of the leave for the aforesaid period.`;
-      } else if (type === 'joining') {
+        body = `Most respectfully, I, <b>${name}</b>, ${designation}${attClause} request that I may kindly be granted <b>Earned Leave for a period of ${durationStr}, i.e., from ${from} to ${to} (both dates inclusive)</b>, on account of ${reason}.<br>I shall be highly obliged for your kind consideration and sanction of the leave for the aforesaid period.`;} else if (type === 'joining') {
         const from = fmtDate(el('dateFrom').value);
         const to = fmtDate(el('dateTo').value);
         const leaveNature = currentJoiningLeaveType();
@@ -999,6 +1002,7 @@
         });
 
       // Bi-directional calendar auto-calculation
+      // Bi-directional sync for Number of Days (Casual Leave - Multiple Days)
       el('numDays').addEventListener('input', () => {
         const days = parseInt(el('numDays').value, 10);
         if (days > 0 && el('dateFrom').value) {
@@ -1008,10 +1012,31 @@
         render();
       });
 
+      // Bi-directional sync for Duration (Earned Leave)
+      el('duration').addEventListener('input', () => {
+        const raw = el('duration').value.trim();
+        const days = parseInt(raw, 10);
+        if (!isNaN(days) && days > 0 && el('dateFrom').value) {
+          el('dateTo').value = addDays(el('dateFrom').value, days - 1);
+          el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
+        }
+        render();
+      });
+
+      // When "From" date changes
       el('dateFrom').addEventListener('change', () => {
-        if (el('leaveType').value === 'casualN') {
+        const type = el('leaveType').value;
+        if (type === 'casualN') {
           const days = parseInt(el('numDays').value, 10) || 1;
           el('dateTo').value = addDays(el('dateFrom').value, days - 1);
+        } else if (type === 'earnedLetter') {
+          const rawDays = parseInt(el('duration').value, 10);
+          if (!isNaN(rawDays) && rawDays > 0) {
+            el('dateTo').value = addDays(el('dateFrom').value, rawDays - 1);
+          } else {
+            const span = diffDaysInclusive(el('dateFrom').value, el('dateTo').value);
+            el('duration').value = `${span} days`;
+          }
         } else {
           el('numDays').value = diffDaysInclusive(el('dateFrom').value, el('dateTo').value);
         }
@@ -1019,15 +1044,18 @@
         render();
       });
 
+      // When "To" date changes
       el('dateTo').addEventListener('change', () => {
         if (el('dateFrom').value) {
           const days = diffDaysInclusive(el('dateFrom').value, el('dateTo').value);
           el('numDays').value = days;
+          if (el('leaveType').value === 'earnedLetter') {
+            el('duration').value = `${days} days`;
+          }
         }
         el('joiningResumeDate').value = addDays(el('dateTo').value, 1);
         render();
       });
-
       el('leaveType').addEventListener('change', e => {
         toggleFieldsForType(e.target.value);
         render();
