@@ -7,19 +7,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Playfair+Display:wght@600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- handwriting fonts (large set) -->
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Caveat+Brush&family=Kalam:wght@400;700&family=Shadows+Into+Light&family=Indie+Flower&family=Patrick+Hand&family=Handlee&family=Gochi+Hand&family=Architects+Daughter&family=Covered+By+Your+Grace&family=Nanum+Pen+Script&family=Permanent+Marker&family=Rock+Salt&family=Dancing+Script:wght@400;600;700&family=Sacramento&family=Satisfy&family=Pacifico&family=Great+Vibes&family=Allura&family=Yellowtail&family=Homemade+Apple&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">
   <style>
-    /* ---- base variables & dark mode (preserved) ---- */
+    /* ----- CSS Variables & Reset ----- */
     :root {
       --bg-page: #fbf9f4; --bg-surface: #f4efe4; --bg-card: #ffffff;
       --border-color: #dcd6c8; --text-color: #23283a; --text-soft: #636b78;
       --maroon-theme: #7a2331; --maroon-hover: #5d1a24;
       --line-grid: #d4d9e2; --margin-rule: #e78c8c;
       --paper-texture: none;
-      --ink-weight-variation: 0;
-      --ink-baseline-jitter: 0deg;
     }
     body.dark-mode {
       --bg-page: #15161a; --bg-surface: #1e2025; --bg-card: #282a30;
@@ -33,7 +30,8 @@
       margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif;
       transition: background 0.25s, color 0.25s;
     }
-    /* ---- header / toolbar ---- */
+
+    /* ----- Header ----- */
     .editor-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border-color);
@@ -58,54 +56,133 @@
     .btn.primary { background: var(--maroon-theme); border-color: var(--maroon-theme); color: #fff; }
     .btn.primary:hover { background: var(--maroon-hover); }
 
-    /* ---- editor shell & page container ---- */
+    /* ----- Editor Shell & Page Container ----- */
     .editor-shell { display: flex; flex-direction: column; align-items: center; padding: 1rem 1rem 2rem; }
     .page-container { width: 100%; max-width: 820px; }
 
-    /* ---- toolbar customization ---- */
+    /* ----- TOOLBAR Overhaul (clean groups) ----- */
     #toolbar {
-      background: var(--bg-surface); border: 1px solid var(--border-color);
-      border-bottom: none; border-radius: 6px 6px 0 0;
-      display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem;
-      padding: 0.4rem 0.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.6rem 0.8rem;
     }
-    .ql-toolbar.ql-snow { border: 1px solid var(--border-color); background: var(--bg-surface); padding: 0.4rem; }
-    .ql-formats { display: inline-flex; align-items: center; gap: 0.1rem; }
-    .word-controls, .paper-style-group {
-      display: inline-flex; align-items: center; gap: 0.3rem;
-      padding-left: 0.4rem; border-left: 1px solid var(--border-color); margin-left: 0.3rem;
-      font-size: 0.75rem; font-weight: 600; color: var(--text-soft);
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.6rem;
+    }
+    .toolbar-row .ql-formats {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.15rem;
+      flex-wrap: wrap;
+    }
+    .toolbar-divider {
+      width: 1px;
+      height: 26px;
+      background: var(--border-color);
+      margin: 0 0.2rem;
+      flex-shrink: 0;
+    }
+    .toolbar-row .word-controls,
+    .toolbar-row .paper-style-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding-left: 0.4rem;
+      border-left: 1px solid var(--border-color);
+      margin-left: 0.2rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-soft);
+      flex-wrap: wrap;
     }
     .word-ctrl-item { display: inline-flex; align-items: center; gap: 0.15rem; }
     .word-ctrl-item input[type="number"] { width: 44px; padding: 0.15rem; font-size: 0.7rem; border: 1px solid var(--border-color); border-radius: 3px; background: var(--bg-card); color: var(--text-color); }
     .paper-style-group label { display: inline-flex; align-items: center; gap: 0.15rem; cursor: pointer; }
+    .paper-style-group select { font-size: 0.7rem; padding: 0.1rem 0.3rem; border: 1px solid var(--border-color); border-radius: 3px; background: var(--bg-card); color: var(--text-color); }
 
-    /* ---- canvas / paper ---- */
+    /* fix custom image + signature button overlap */
+    .ql-custom-image, .ql-signature {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      min-width: 50px;
+      padding: 0.2rem 0.5rem !important;
+      border: 1px solid var(--border-color) !important;
+      border-radius: 4px !important;
+      background: var(--bg-card);
+      color: var(--text-color);
+      font-size: 0.78rem !important;
+      font-weight: 600;
+      cursor: pointer;
+      gap: 0.2rem;
+    }
+    .ql-custom-image:hover, .ql-signature:hover { background: var(--bg-surface); border-color: var(--maroon-theme); }
+    .ql-custom-image::before { content: '🖼️ Image'; }
+    .ql-signature::before { content: '✍️ Sign'; }
+
+    /* custom font upload styled */
+    .font-upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.2rem 0.6rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-card);
+      color: var(--text-color);
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+    .font-upload-btn:hover { border-color: var(--maroon-theme); }
+
+    /* ----- Canvas / Paper ----- */
     .editor-canvas-wrapper {
-      position: relative; width: 100%; background-color: #ffffff;
-      border: 1px solid var(--border-color); border-radius: 0 0 6px 6px;
+      position: relative;
+      width: 100%;
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 0 0 6px 6px;
       box-shadow: 0 12px 28px -14px rgba(35,40,58,0.22);
-      overflow: visible; /* allow page shadows */
+      overflow: visible;
     }
     #editor-body { background: transparent !important; border: none !important; min-height: 850px; position: relative; z-index: 2; }
     .ql-container.ql-snow { border: none !important; background: transparent !important; }
     .ql-editor {
-      min-height: 850px; padding: 3rem 2.75rem;
-      font-family: 'Lora', serif; font-size: 16px; line-height: 2;
-      color: #23283a; background: transparent !important;
+      min-height: 850px;
+      padding: 3rem 2.75rem;
+      font-family: 'Lora', serif;
+      font-size: 16px;
+      line-height: 2;
+      color: #23283a;
+      background: transparent !important;
       box-sizing: border-box;
     }
+    /* PERFECT BASELINE: zero out paragraph margins */
+    .ql-editor p { margin: 0; padding: 0; }
     .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
     .ql-editor img { display: block; max-width: 100%; margin: 0.5rem 0; border-radius: 2px; }
 
-    /* ruled paper & margin */
+    /* ruled paper & margin (baseline sync with JS) */
     .editor-canvas-wrapper.ruled-paper {
       background-image: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
       background-size: 100% 32px !important;
     }
     .margin-line-indicator {
-      display: none; position: absolute; top: 0; bottom: 0; left: 64px;
-      width: 2px; background-color: #e78c8c; z-index: 1; pointer-events: none;
+      display: none;
+      position: absolute;
+      top: 0; bottom: 0; left: 64px;
+      width: 2px;
+      background-color: var(--margin-rule);
+      z-index: 1;
+      pointer-events: none;
     }
     .editor-canvas-wrapper.ruled-margin .margin-line-indicator { display: block; }
 
@@ -128,10 +205,6 @@
       background: var(--maroon-theme); cursor: se-resize;
     }
 
-    /* custom quill buttons */
-    .ql-signature::before { content: '✍️ Sign'; font-size: 0.78rem; font-weight: 600; }
-    .ql-custom-image::before { content: '🖼️ Image'; font-size: 0.78rem; font-weight: 600; }
-
     /* status bar */
     .status-bar {
       display: flex; justify-content: space-between; align-items: center;
@@ -139,7 +212,7 @@
       padding: 0.6rem 0.5rem; border-top: 1px solid var(--border-color);
     }
 
-    /* ---- modals (sig, pdf, drafts) ---- */
+    /* ----- Modals ----- */
     .sig-modal, .pdf-modal, .draft-modal {
       display: none; position: fixed; inset: 0;
       background: rgba(20,20,25,0.65); z-index: 1200;
@@ -182,34 +255,39 @@
     .draft-item:hover { background: var(--bg-surface); }
     .draft-item .draft-meta { font-size: 0.8rem; color: var(--text-soft); }
 
-    /* paper texture classes */
+    /* paper textures */
     .paper-ivory .ql-editor { background: #fcf8ef; }
     .paper-parchment .ql-editor { background: #f3ead8; }
     .paper-scanner .ql-editor { background: #f5f2ec; }
-    .paper-scanner .editor-canvas-wrapper { filter: contrast(1.02) brightness(0.98); }
 
-    /* page separation (multi-page visual) */
-    .page-sheet {
-      position: relative; background: #fff; margin-bottom: 2px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .page-sheet::after {
-      content: ''; position: absolute; bottom: -6px; left: 10%; width: 80%;
-      height: 6px; background: rgba(0,0,0,0.03); filter: blur(2px);
-      pointer-events: none;
-    }
-
-    /* responsive */
+    /* ----- PRINT (keep lines & margin) ----- */
     @media print {
       body * { visibility: hidden; }
       .editor-canvas-wrapper, .editor-canvas-wrapper * { visibility: visible; }
-      .editor-canvas-wrapper { position: absolute; left: 0; top: 0; width: 100% !important; border: none !important; box-shadow: none !important; }
+      .editor-canvas-wrapper {
+        position: absolute; left: 0; top: 0; width: 100% !important;
+        border: none !important; box-shadow: none !important;
+        background: #fff !important;
+      }
+      .editor-canvas-wrapper.ruled-paper {
+        background-image: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
+        background-size: 100% 32px !important;
+      }
+      .margin-line-indicator { display: block !important; background: #e78c8c !important; }
       .floating-signature { border: none !important; }
       .sig-del-btn, .sig-resize-handle { display: none !important; }
+    }
+
+    /* responsive */
+    @media (max-width: 700px) {
+      .toolbar-row { flex-direction: column; align-items: stretch; gap: 0.3rem; }
+      .toolbar-divider { display: none; }
+      .word-controls, .paper-style-group { border-left: none !important; padding-left: 0 !important; margin-left: 0 !important; }
     }
   </style>
 </head>
 <body>
+  <!-- HEADER -->
   <div class="editor-header">
     <div class="header-left">
       <button class="theme-toggle-btn" id="btnThemeToggle"><span id="themeIcon">🌙</span> <span id="themeText">Dark</span></button>
@@ -225,71 +303,76 @@
     </div>
   </div>
 
+  <!-- EDITOR -->
   <div class="editor-shell">
     <div class="page-container">
-      <!-- toolbar -->
+      <!-- TOOLBAR (two rows) -->
       <div id="toolbar">
-        <span class="ql-formats">
-          <select class="ql-header"><option selected>Normal</option><option value="1">H1</option><option value="2">H2</option><option value="3">H3</option></select>
-          <select class="ql-font">
-            <option value="lora" selected>Lora</option><option value="arial">Arial</option><option value="georgia">Georgia</option>
-            <option value="playfair">Playfair</option><option value="caveat">Caveat</option><option value="kalam">Kalam</option>
-            <option value="shadows">Shadows</option><option value="indie">Indie</option><option value="patrick">Patrick</option>
-            <option value="handlee">Handlee</option><option value="gochi">Gochi</option><option value="architects">Architects</option>
-            <option value="covered">Covered</option><option value="nanum">Nanum</option><option value="marker">Marker</option>
-            <option value="rocksalt">Rock Salt</option><option value="dancing">Dancing</option><option value="sacramento">Sacramento</option>
-            <option value="satisfy">Satisfy</option><option value="pacifico">Pacifico</option><option value="greatvibes">Great Vibes</option>
-            <option value="allura">Allura</option><option value="yellowtail">Yellowtail</option><option value="homemade">Homemade</option>
-            <option value="caveatbrush">Caveat Brush</option>
-          </select>
-          <select class="ql-size"><option value="12px">12</option><option value="14px">14</option><option value="16px" selected>16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="28px">28</option><option value="32px">32</option></select>
-        </span>
-        <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-strike"></button></span>
-        <span class="ql-formats">
-          <select class="ql-color"><option value="#23283a" selected>Dark</option><option value="#003366">Blue</option><option value="#7a2331">Maroon</option><option value="#1e4620">Green</option></select>
-          <select class="ql-background"><option selected>Transparent</option><option value="#fff9c4">Yellow</option><option value="#c8e6c9">Green</option><option value="#ffcdd2">Pink</option></select>
-        </span>
-        <span class="ql-formats"><button class="ql-align" value=""></button><button class="ql-align" value="center"></button><button class="ql-align" value="right"></button><button class="ql-align" value="justify"></button></span>
-        <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
-        <span class="ql-formats">
-          <button class="ql-custom-image" id="btnInsertImage"></button>
-          <button class="ql-signature" id="btnInsertSig"></button>
-          <button class="ql-clean"></button>
-        </span>
-        <!-- new snippet dropdown -->
-        <span class="ql-formats">
-          <select id="snippetSelect" style="font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-card);color:var(--text-color);">
-            <option value="">📎 Snippet</option>
-            <option value="addressee">To, The Director / Principal...</option>
-            <option value="subject">Subject: ...</option>
-            <option value="through">Through Proper Channel</option>
-            <option value="enclosure">Encl: 1. ..., 2. ...</option>
-          </select>
-        </span>
-        <!-- table insert -->
-        <span class="ql-formats">
-          <button class="btn" id="btnInsertTable" style="font-size:0.7rem;padding:0.1rem 0.4rem;">📊 Table</button>
-        </span>
-        <!-- stamp tool -->
-        <span class="ql-formats">
-          <button class="btn" id="btnStamp" style="font-size:0.7rem;padding:0.1rem 0.4rem;">🏛️ Stamp</button>
-        </span>
-        <div class="word-controls">
-          <span class="word-ctrl-item">Line: <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0"></span>
-          <span class="word-ctrl-item">Space: <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0"></span>
+        <!-- Row 1: Quill formatting -->
+        <div class="toolbar-row">
+          <span class="ql-formats">
+            <select class="ql-header"><option selected>Normal</option><option value="1">H1</option><option value="2">H2</option><option value="3">H3</option></select>
+            <select class="ql-font">
+              <option value="lora" selected>Lora</option><option value="arial">Arial</option><option value="georgia">Georgia</option>
+              <option value="playfair">Playfair</option><option value="caveat">Caveat</option><option value="kalam">Kalam</option>
+              <option value="shadows">Shadows</option><option value="indie">Indie</option><option value="patrick">Patrick</option>
+              <option value="handlee">Handlee</option><option value="gochi">Gochi</option><option value="architects">Architects</option>
+              <option value="covered">Covered</option><option value="nanum">Nanum</option><option value="marker">Marker</option>
+              <option value="rocksalt">Rock Salt</option><option value="dancing">Dancing</option><option value="sacramento">Sacramento</option>
+              <option value="satisfy">Satisfy</option><option value="pacifico">Pacifico</option><option value="greatvibes">Great Vibes</option>
+              <option value="allura">Allura</option><option value="yellowtail">Yellowtail</option><option value="homemade">Homemade</option>
+              <option value="caveatbrush">Caveat Brush</option>
+            </select>
+            <select class="ql-size"><option value="12px">12</option><option value="14px">14</option><option value="16px" selected>16</option><option value="18px">18</option><option value="20px">20</option><option value="24px">24</option><option value="28px">28</option><option value="32px">32</option></select>
+          </span>
+          <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button><button class="ql-strike"></button></span>
+          <span class="ql-formats">
+            <select class="ql-color"><option value="#23283a" selected>Dark</option><option value="#003366">Blue</option><option value="#7a2331">Maroon</option><option value="#1e4620">Green</option></select>
+            <select class="ql-background"><option selected>Transparent</option><option value="#fff9c4">Yellow</option><option value="#c8e6c9">Green</option><option value="#ffcdd2">Pink</option></select>
+          </span>
+          <span class="ql-formats"><button class="ql-align" value=""></button><button class="ql-align" value="center"></button><button class="ql-align" value="right"></button><button class="ql-align" value="justify"></button></span>
+          <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button><button class="ql-indent" value="-1"></button><button class="ql-indent" value="+1"></button></span>
+          <span class="ql-formats">
+            <button class="ql-custom-image" id="btnInsertImage"></button>
+            <button class="ql-signature" id="btnInsertSig"></button>
+            <button class="ql-clean"></button>
+          </span>
+          <span class="ql-formats">
+            <select id="snippetSelect" style="font-size:0.75rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-card);color:var(--text-color);">
+              <option value="">📎 Snippet</option>
+              <option value="addressee">To, The Director...</option>
+              <option value="subject">Subject: ...</option>
+              <option value="through">Through Proper Channel</option>
+              <option value="enclosure">Encl: 1. ...</option>
+            </select>
+          </span>
+          <span class="ql-formats">
+            <button class="btn" id="btnInsertTable" style="font-size:0.7rem;padding:0.1rem 0.4rem;">📊 Table</button>
+            <button class="btn" id="btnStamp" style="font-size:0.7rem;padding:0.1rem 0.4rem;">🏛️ Stamp</button>
+          </span>
         </div>
-        <div class="paper-style-group">
-          <label><input type="checkbox" id="toggleRuled" checked> Lines</label>
-          <label><input type="checkbox" id="toggleMargin" checked> Margin</label>
-          <label>Ink <input type="checkbox" id="toggleInkRealism"> Realism</label>
-          <select id="paperTextureSelect" style="font-size:0.7rem;padding:0.1rem 0.3rem;border:1px solid var(--border-color);border-radius:3px;background:var(--bg-card);color:var(--text-color);">
-            <option value="plain">Plain</option><option value="ivory">Ivory</option><option value="parchment">Parchment</option><option value="scanner">Scanner</option>
-          </select>
-          <label>Custom Font <input type="file" id="customFontUpload" accept=".ttf,.otf" style="max-width:100px;"></label>
+
+        <!-- Row 2: Paper controls, line-height, spacing, ink, texture, font upload -->
+        <div class="toolbar-row">
+          <div class="word-controls">
+            <span class="word-ctrl-item">Line: <input type="number" id="lineHeightInput" min="1.0" max="3.5" step="0.1" value="2.0"></span>
+            <span class="word-ctrl-item">Space: <input type="number" id="letterSpacingInput" min="-2" max="10" step="0.5" value="0"></span>
+          </div>
+          <div class="toolbar-divider"></div>
+          <div class="paper-style-group">
+            <label><input type="checkbox" id="toggleRuled" checked> Lines</label>
+            <label><input type="checkbox" id="toggleMargin" checked> Margin</label>
+            <label>Ink <input type="checkbox" id="toggleInkRealism"> Realism</label>
+            <select id="paperTextureSelect">
+              <option value="plain">Plain</option><option value="ivory">Ivory</option><option value="parchment">Parchment</option><option value="scanner">Scanner</option>
+            </select>
+            <label class="font-upload-btn" for="customFontUpload">📁 Upload Font</label>
+            <input type="file" id="customFontUpload" accept=".ttf,.otf" style="display:none;">
+          </div>
         </div>
       </div>
 
-      <!-- canvas wrapper -->
+      <!-- CANVAS -->
       <div class="editor-canvas-wrapper ruled-paper ruled-margin" id="canvasWrapper">
         <div class="margin-line-indicator" id="marginLine"></div>
         <div id="editor-body"></div>
@@ -306,13 +389,9 @@
   <input type="file" id="generalImageInput" accept="image/*" style="display:none;">
   <input type="file" id="stampImageInput" accept="image/*" style="display:none;">
 
-  <!-- Signature Modal -->
+  <!-- Modals -->
   <div class="sig-modal" id="sigPickerModal"><div class="sig-modal-inner"><div class="sig-modal-header"><span>Insert Signature</span><button class="btn" id="sigPickerClose">&times;</button></div><div class="sig-modal-body"><div class="sig-grid" id="sigModalGrid"></div></div></div></div>
-
-  <!-- PDF Modal -->
   <div class="pdf-modal" id="pdfModal"><div class="pdf-modal-inner"><div class="pdf-modal-header"><span>PDF preview</span><div><button class="btn primary" id="pdfModalDownload">Download</button><button class="btn" id="pdfModalClose">Close</button></div></div><div id="pdfPreviewPages"></div></div></div>
-
-  <!-- Drafts Modal -->
   <div class="draft-modal" id="draftModal"><div class="draft-modal-inner"><div class="draft-modal-header"><span>📂 Recent Drafts</span><button class="btn" id="draftModalClose">&times;</button></div><div class="draft-modal-body" id="draftList"></div></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.js"></script>
@@ -321,12 +400,13 @@
   <script>
     (function(){
       const el = id => document.getElementById(id);
-      // ---- theme ----
+
+      // ----- THEME -----
       function initTheme(){ const saved=localStorage.getItem('arzi_editor_theme')||'light'; if(saved==='dark'){ document.body.classList.add('dark-mode'); el('themeIcon').textContent='☀️'; el('themeText').textContent='Light'; } }
       el('btnThemeToggle').addEventListener('click',()=>{ const isDark=document.body.classList.toggle('dark-mode'); localStorage.setItem('arzi_editor_theme',isDark?'dark':'light'); el('themeIcon').textContent=isDark?'☀️':'🌙'; el('themeText').textContent=isDark?'Light':'Dark'; });
       initTheme();
 
-      // ---- Quill setup ----
+      // ----- QUILL SETUP -----
       const Font = Quill.import('formats/font');
       Font.whitelist = ['arial','georgia','lora','playfair','caveat','caveatbrush','kalam','shadows','indie','patrick','handlee','gochi','architects','covered','nanum','marker','rocksalt','dancing','sacramento','satisfy','pacifico','greatvibes','allura','yellowtail','homemade'];
       Quill.register(Font, true);
@@ -335,48 +415,58 @@
       Quill.register(Size, true);
       const quill = new Quill('#editor-body', { theme: 'snow', modules: { toolbar: '#toolbar' }, placeholder: 'Start writing…' });
 
-      // ---- helpers ----
       function getEditorEl(){ return document.querySelector('#editor-body .ql-editor'); }
 
-      // ---- line height / letter spacing ----
-      el('lineHeightInput').addEventListener('input', e=>{ const v=parseFloat(e.target.value)||2.0; getEditorEl().style.lineHeight=v; updateRuledBackground(); });
-      el('letterSpacingInput').addEventListener('input', e=>{ getEditorEl().style.letterSpacing=(parseFloat(e.target.value)||0)+'px'; });
-
+      // ----- BASELINE SYNC: recalc ruled grid -----
       function updateRuledBackground(){
-        if(!el('toggleRuled').checked) return;
-        const lh=parseFloat(el('lineHeightInput').value)||2.0;
-        const rowHeight=Math.round(16*lh);
-        const wrapper=el('canvasWrapper');
-        wrapper.style.backgroundImage=`repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
-        wrapper.style.backgroundSize=`100% ${rowHeight}px`;
+        const checked = el('toggleRuled').checked;
+        const wrapper = el('canvasWrapper');
+        if(!checked){
+          wrapper.style.backgroundImage = 'none';
+          return;
+        }
+        const fs = parseFloat(getEditorEl().style.fontSize) || 16;
+        const lh = parseFloat(el('lineHeightInput').value) || 2.0;
+        const rowHeight = Math.round(fs * lh);
+        wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+        wrapper.style.backgroundSize = `100% ${rowHeight}px`;
       }
 
-      // ---- ruled / margin ----
-      el('toggleRuled').addEventListener('change',e=>{ el('canvasWrapper').classList.toggle('ruled-paper',e.target.checked); if(!e.target.checked) el('canvasWrapper').style.backgroundImage='none'; else updateRuledBackground(); });
-      el('toggleMargin').addEventListener('change',e=>{ el('canvasWrapper').classList.toggle('ruled-margin',e.target.checked); });
+      // ----- line-height / letter-spacing controls -----
+      el('lineHeightInput').addEventListener('input', e=>{ getEditorEl().style.lineHeight = parseFloat(e.target.value)||2.0; updateRuledBackground(); });
+      el('letterSpacingInput').addEventListener('input', e=>{ getEditorEl().style.letterSpacing = (parseFloat(e.target.value)||0)+'px'; });
+      // font size change -> recalc
+      document.querySelector('.ql-size').addEventListener('change', function(){
+        const val = this.value;
+        if(val) { getEditorEl().style.fontSize = val; updateRuledBackground(); }
+      });
 
-      // ---- ink realism (experimental) ----
+      // ----- ruled / margin toggles -----
+      el('toggleRuled').addEventListener('change', e=>{ el('canvasWrapper').classList.toggle('ruled-paper',e.target.checked); updateRuledBackground(); });
+      el('toggleMargin').addEventListener('change', e=>{ el('canvasWrapper').classList.toggle('ruled-margin',e.target.checked); });
+
+      // ----- ink realism (subtle) -----
       el('toggleInkRealism').addEventListener('change', e=>{
-        const editor = getEditorEl();
+        const ed = getEditorEl();
         if(e.target.checked){
-          editor.style.fontWeight = '450'; // slight variation
-          editor.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+0.3+'px';
-          editor.style.transform = 'rotate(0.3deg)';
+          ed.style.fontWeight = '450';
+          ed.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+0.3+'px';
+          ed.style.transform = 'rotate(0.2deg)';
         } else {
-          editor.style.fontWeight = '';
-          editor.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+'px';
-          editor.style.transform = '';
+          ed.style.fontWeight = '';
+          ed.style.letterSpacing = (parseFloat(el('letterSpacingInput').value)||0)+'px';
+          ed.style.transform = '';
         }
       });
 
-      // ---- paper texture ----
+      // ----- paper texture -----
       el('paperTextureSelect').addEventListener('change', e=>{
         const wrapper = el('canvasWrapper');
         wrapper.className = wrapper.className.split(' ').filter(c=>!c.startsWith('paper-')).join(' ');
         if(e.target.value!=='plain') wrapper.classList.add('paper-'+e.target.value);
       });
 
-      // ---- custom font upload ----
+      // ----- custom font upload (styled) -----
       el('customFontUpload').addEventListener('change', async e=>{
         const file = e.target.files[0];
         if(!file) return;
@@ -391,14 +481,13 @@
           sel.appendChild(opt);
           sel.value = 'customHand';
           quill.format('font', 'customHand');
-          // add style
           const style = document.createElement('style');
           style.textContent = `.ql-font-customHand { font-family: 'customHand', cursive; }`;
           document.head.appendChild(style);
         } catch(err){ alert('Font load failed: '+err.message); }
       });
 
-      // ---- image insert ----
+      // ----- image insert -----
       el('btnInsertImage').addEventListener('click',()=>el('generalImageInput').click());
       el('generalImageInput').addEventListener('change', e=>{
         const file=e.target.files[0]; if(!file) return;
@@ -407,7 +496,7 @@
         reader.readAsDataURL(file); e.target.value='';
       });
 
-      // ---- signature vault (preserved) ----
+      // ----- signature vault (preserved) -----
       const DB_NAME='ArziSignaturesDB', STORE_NAME='signatures';
       function openDatabase(){ return new Promise((resolve,reject)=>{ const req=indexedDB.open(DB_NAME,1); req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'}); }; req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error); }); }
       function isValidSignatureDataUrl(d){ return typeof d==='string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(d); }
@@ -438,7 +527,7 @@
       el('btnInsertSig').addEventListener('click', openSignaturePicker);
       el('sigPickerClose').addEventListener('click',()=>{ el('sigPickerModal').style.display='none'; });
 
-      // ---- stamp tool ----
+      // ----- stamp tool -----
       el('btnStamp').addEventListener('click',()=>{ el('stampImageInput').click(); });
       el('stampImageInput').addEventListener('change', e=>{
         const file=e.target.files[0]; if(!file) return;
@@ -449,11 +538,9 @@
           stamp.style.cssText='position:absolute; left:100px; top:200px; width:120px; height:120px; border-radius:50%; border:2px solid #7a2331; background:rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; z-index:90; cursor:move; overflow:hidden;';
           const img=document.createElement('img'); img.src=ev.target.result; img.style.width='100%'; img.style.height='100%'; img.style.objectFit='contain';
           stamp.appendChild(img);
-          // opacity slider
           const slider=document.createElement('input'); slider.type='range'; slider.min='0.2'; slider.max='1'; slider.step='0.05'; slider.value='0.8'; slider.style.position='absolute'; slider.style.bottom='-20px'; slider.style.width='80px';
           slider.addEventListener('input',()=>{ stamp.style.opacity=slider.value; });
           stamp.appendChild(slider);
-          // draggable
           let isDrag=false,sx,sy,ix,iy;
           stamp.addEventListener('mousedown',e=>{ if(e.target===slider)return; isDrag=true; sx=e.clientX; sy=e.clientY; ix=stamp.offsetLeft; iy=stamp.offsetTop; e.preventDefault(); });
           window.addEventListener('mousemove',e=>{ if(isDrag){ stamp.style.left=Math.max(0,ix+e.clientX-sx)+'px'; stamp.style.top=Math.max(0,iy+e.clientY-sy)+'px'; } });
@@ -463,27 +550,19 @@
         reader.readAsDataURL(file); e.target.value='';
       });
 
-      // ---- snippet insert ----
+      // ----- snippet -----
       el('snippetSelect').addEventListener('change', function(){
-        const val=this.value;
-        if(!val) return;
-        const snippets = {
-          addressee: 'To, The Director / Principal\n[Institution Name]\n[Address]',
-          subject: 'Subject: ___________________________',
-          through: 'Through Proper Channel\n\n',
-          enclosure: 'Encl: 1. ___________\n2. ___________\n3. ___________'
-        };
+        const val=this.value; if(!val) return;
+        const snippets = { addressee: 'To, The Director / Principal\n[Institution Name]\n[Address]', subject: 'Subject: ___________________________', through: 'Through Proper Channel\n\n', enclosure: 'Encl: 1. ___________\n2. ___________\n3. ___________' };
         const text = snippets[val] || '';
         if(text){ const range=quill.getSelection(true); quill.insertText(range.index, text); quill.setSelection(range.index+text.length); }
         this.value='';
       });
 
-      // ---- table insert ----
+      // ----- table insert -----
       el('btnInsertTable').addEventListener('click', ()=>{
-        const cols = prompt('Columns (2-4):', '3');
-        if(!cols) return;
-        const c = parseInt(cols);
-        if(c<2||c>4) return alert('2-4 columns only');
+        const cols = prompt('Columns (2-4):', '3'); if(!cols) return;
+        const c = parseInt(cols); if(c<2||c>4) return alert('2-4 columns only');
         let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;width:100%;"><tr>';
         for(let i=0;i<c;i++) html += '<th>Col '+(i+1)+'</th>';
         html += '</tr><tr>';
@@ -493,14 +572,8 @@
         quill.clipboard.dangerouslyPasteHTML(range.index, html);
       });
 
-      // ---- drafts manager (multi-draft) ----
+      // ----- drafts manager -----
       function getDrafts(){ try { return JSON.parse(localStorage.getItem('arzi_drafts_v2'))||[]; } catch { return []; } }
-      function saveDraft(name){
-        const drafts=getDrafts();
-        const content=quill.getContents();
-        drafts.push({ id: Date.now(), name: name||'Draft '+new Date().toLocaleString(), content: content, timestamp: Date.now() });
-        localStorage.setItem('arzi_drafts_v2', JSON.stringify(drafts));
-      }
       function renderDrafts(){
         const list=el('draftList'); list.innerHTML='';
         const drafts=getDrafts();
@@ -517,20 +590,18 @@
       el('btnDrafts').addEventListener('click',()=>{ renderDrafts(); el('draftModal').style.display='flex'; });
       el('draftModalClose').addEventListener('click',()=>{ el('draftModal').style.display='none'; });
 
-      // auto-save on change (with timestamp)
+      // auto-save
       quill.on('text-change', ()=>{
         updateCounters();
-        // auto-save to recent drafts (keep last 20)
         const drafts=getDrafts();
         const content=quill.getContents();
         drafts.push({ id: Date.now(), name: 'Auto '+new Date().toLocaleString(), content, timestamp: Date.now() });
         if(drafts.length>20) drafts.splice(0, drafts.length-20);
         localStorage.setItem('arzi_drafts_v2', JSON.stringify(drafts));
-        // also preserve single draft for backward
         try { localStorage.setItem('arzi_editor_draft_v2', JSON.stringify(quill.getContents())); } catch(e){}
       });
 
-      // ---- counters ----
+      // ----- counters -----
       function updateCounters(){
         const text=quill.getText(); const chars=text.replace(/\n/g,'').length; const words=text.trim()?text.trim().split(/\s+/).length:0;
         el('textStats').textContent=`${words} words • ${chars} characters`;
@@ -541,28 +612,50 @@
       }
       function getStandardPagePixelHeight(){ const ratio=parseFloat(el('pageSize').selectedOptions[0].dataset.ratio); const width=document.querySelector('.page-container').clientWidth; return Math.round(width/ratio); }
 
-      // ---- export: image, pdf, txt ----
+      // ----- EXPORT (fixed: lines & margin preserved) -----
       async function captureFullDocumentCanvas(){
         const wrapper=el('canvasWrapper');
         const clone=wrapper.cloneNode(true);
+        // keep all children, including margin line
         clone.querySelectorAll('.sig-del-btn, .sig-resize-handle').forEach(n=>n.remove());
         clone.style.position='fixed'; clone.style.left='-9999px'; clone.style.top='0';
         clone.style.width=wrapper.clientWidth+'px'; clone.style.height='auto'; clone.style.overflow='visible';
         clone.style.boxShadow='none'; clone.style.backgroundColor='#ffffff';
+        // Copy exact ruled background if checked
         if(el('toggleRuled').checked){
-          const lh=parseFloat(el('lineHeightInput').value)||2.0; const rowHeight=Math.round(16*lh);
-          clone.style.backgroundImage=`repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
-          clone.style.backgroundSize=`100% ${rowHeight}px`;
-        } else clone.style.backgroundImage='none';
+          const fs = parseFloat(getEditorEl().style.fontSize) || 16;
+          const lh = parseFloat(el('lineHeightInput').value) || 2.0;
+          const rowHeight = Math.round(fs * lh);
+          clone.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+          clone.style.backgroundSize = `100% ${rowHeight}px`;
+        } else {
+          clone.style.backgroundImage = 'none';
+        }
+        // Ensure margin line is visible
+        const marginClone = clone.querySelector('.margin-line-indicator');
+        if(marginClone) marginClone.style.display = 'block';
         document.body.appendChild(clone);
-        try { const canvas=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}); return canvas; } finally { document.body.removeChild(clone); }
+        try {
+          const canvas = await html2canvas(clone, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false,
+            allowTaint: true
+          });
+          return canvas;
+        } finally {
+          document.body.removeChild(clone);
+        }
       }
+
       function sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt){
         const pxPerPt=canvas.width/imgWidthPt; const pagePxHeight=Math.max(1,Math.floor(contentHeightPt*pxPerPt));
         const pages=[]; let y=0;
         while(y<canvas.height){ const sliceH=Math.min(pagePxHeight, canvas.height-y); const pc=document.createElement('canvas'); pc.width=canvas.width; pc.height=sliceH; const ctx=pc.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,pc.width,pc.height); ctx.drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH); pages.push(pc); y+=sliceH; }
         return pages;
       }
+
       let pendingPdf=null;
       async function exportAs(type){
         const btn=el(type==='image'?'export-image':type==='pdf'?'export-pdf':'export-text');
@@ -590,21 +683,19 @@
       el('pdfModalClose').addEventListener('click',()=>{ el('pdfModal').style.display='none'; });
       el('pdfModalDownload').addEventListener('click',()=>{ if(pendingPdf) pendingPdf.save('handwritten-document.pdf'); });
 
-      // ---- init ----
+      // ----- init -----
       function loadDraft(){ try { const saved=localStorage.getItem('arzi_editor_draft_v2'); if(saved) quill.setContents(JSON.parse(saved)); } catch(e){} }
       loadDraft();
-      updateCounters(); updateRuledBackground();
+      updateCounters();
+      updateRuledBackground();
       const initH=getStandardPagePixelHeight();
       document.querySelector('#editor-body .ql-editor').style.minHeight=initH+'px';
-      // page size change
       el('pageSize').addEventListener('change', ()=>{ const h=getStandardPagePixelHeight(); document.querySelector('#editor-body .ql-editor').style.minHeight=h+'px'; updateCounters(); });
 
-      // ---- Ctrl+P print ----
+      // Ctrl+P print
       document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='p'){ e.preventDefault(); window.print(); } });
 
-      // ---- extra: page sheet separation (visual) ----
-      // we rely on min-height and scroll for multi-page; no physical sheets needed.
-      console.log('Arzi Pro loaded with all features.');
+      console.log('Arzi Pro loaded with fixed layout, baseline, and export.');
     })();
   </script>
 </body>
