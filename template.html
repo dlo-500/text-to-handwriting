@@ -200,6 +200,22 @@
     border: none;
   }
 
+  .sig-file-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+  }
+  .btn-small {
+    font-size: 0.74rem;
+    padding: 0.35rem 0.6rem;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .btn-small:hover { border-color: var(--maroon); }
+
   .preview-pane {
     flex: 1 1 420px;
     min-width: 320px;
@@ -503,8 +519,14 @@
           <button type="button" class="btn" id="sigSaveToLibrary" disabled>Save to my signatures</button>
         </div>
 
-        <p class="sig-hint" id="sigLibCount"></p>
+        <p class="sig-hint" id="sigLibCount">Saved signatures: 0 / 40</p>
         <div class="sig-library" id="sigLibrary"></div>
+
+        <div class="sig-file-actions">
+          <button type="button" class="btn-small" id="sigExportBackup">Export Backup (.json)</button>
+          <button type="button" class="btn-small" id="sigImportBackupTrigger">Import Backup</button>
+          <input type="file" id="sigImportFile" accept=".json" style="display:none;">
+        </div>
       </div>
 
       <!-- Form I specific fields -->
@@ -703,7 +725,7 @@
         body = `With respect it is submitted that the undersigned was on leave from ${from} to ${to}. Now the undersigned has resumed duties today on ${today}.<br>Hence the joining report is submitted for favour of information and further necessary action.`;
       }
 
-      const sigHtml = signatureDataUrl ? `<img class="sig-img" src="${signatureDataUrl}">` : '';
+      const sigHtml = isValidSignatureDataUrl(signatureDataUrl) ? `<img class="sig-img" src="${signatureDataUrl}">` : '';
 
       if (type === 'earnedFormI') {
         return buildFormI();
@@ -724,14 +746,13 @@
     function buildFormI() {
       const from = fmtDate(el('dateFrom').value);
       const to = fmtDate(el('dateTo').value);
-      const n = el('numDays') && el('numDays').value ? el('numDays').value : '';
       const name = el('applicantName').value || '[Your Name]';
       const post = el('fiPost').value || currentDesignation();
       const office = el('fiOffice').value;
       const grounds = el('fiGrounds').value || '[grounds for leave]';
       const prefix = el('fiPrefix').value || '—';
       const address = el('fiAddress').value || '[address during leave]';
-      const sigHtml = signatureDataUrl ? `<img class="sig-img" src="${signatureDataUrl}">` : '';
+      const sigHtml = isValidSignatureDataUrl(signatureDataUrl) ? `<img class="sig-img" src="${signatureDataUrl}">` : '';
 
       return `
         <p style="text-align:center; font-weight:600;">FORM I<br><span style="font-weight:400; font-size:0.85rem;">[See rule 15]</span><br>APPLICATION FOR LEAVE OR FOR EXTENSION OF LEAVE</p>
@@ -780,26 +801,88 @@
         el('designationCustomField').style.display = el('designationPreset').value === 'custom' ? '' : 'none';
         render();
       });
-
     }
 
-    /* ---------- Signature: upload / scan / crop / library ---------- */
+    /* ---------- Robust Local Storage (IndexedDB) & Security Layer ---------- */
 
-    const SIG_KEY = 'arzi_signatures_v1';
+    const DB_NAME = 'ArziSignaturesDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'signatures';
     const SIG_LIMIT = 40;
-    let camStream = null;
-    let rawImageForCrop = null; // dataURL of the source image (upload or captured frame)
-    let cropRect = null; // {x,y,w,h} in displayed-image pixels
+    const MAX_SIGNATURE_WIDTH = 480;
 
-    function loadSignatures() {
-      try { return JSON.parse(localStorage.getItem(SIG_KEY)) || []; }
-      catch (e) { return []; }
+    let camStream = null;
+    let rawImageForCrop = null;
+    let cropRect = null;
+
+    function openDatabase() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = e => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
     }
-    function saveSignatures(list) {
-      localStorage.setItem(SIG_KEY, JSON.stringify(list));
+
+    function isValidSignatureDataUrl(dataUrl) {
+      if (typeof dataUrl !== 'string') return false;
+      return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl);
+    }
+
+    async function loadSignatures() {
+      try {
+        const db = await openDatabase();
+        return new Promise((resolve) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.getAll();
+          req.onsuccess = () => {
+            const list = (req.result || [])
+              .map(item => item.data)
+              .filter(isValidSignatureDataUrl);
+            resolve(list);
+          };
+          req.onerror = () => resolve(fallbackLoadLocal());
+        });
+      } catch (err) {
+        return fallbackLoadLocal();
+      }
+    }
+
+    function fallbackLoadLocal() {
+      try {
+        const list = JSON.parse(localStorage.getItem('arzi_signatures_v1')) || [];
+        return Array.isArray(list) ? list.filter(isValidSignatureDataUrl) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    async function saveSignatures(list) {
+      const sanitized = list.filter(isValidSignatureDataUrl);
+      try {
+        const db = await openDatabase();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.clear();
+        sanitized.forEach((data, index) => {
+          store.put({ id: index + 1, data: data, updatedAt: Date.now() });
+        });
+      } catch (err) {
+        console.warn('Falling back to localStorage:', err);
+      }
+      try {
+        localStorage.setItem('arzi_signatures_v1', JSON.stringify(sanitized));
+      } catch (e) {}
     }
 
     function setCurrentSignature(dataUrl) {
+      if (dataUrl && !isValidSignatureDataUrl(dataUrl)) return;
       signatureDataUrl = dataUrl;
       el('sigPreview').innerHTML = dataUrl ? `<img src="${dataUrl}">` : 'no signature selected';
       el('sigSaveToLibrary').disabled = !dataUrl;
@@ -807,35 +890,110 @@
       render();
     }
 
-    function renderLibrary() {
-      const list = loadSignatures();
+    async function renderLibrary() {
+      const list = await loadSignatures();
       el('sigLibCount').textContent = `Saved signatures: ${list.length} / ${SIG_LIMIT}`;
       const wrap = el('sigLibrary');
       wrap.innerHTML = '';
-      list.forEach((dataUrl, i) => {
+
+      list.forEach((dataUrl) => {
         const item = document.createElement('div');
         item.className = 'sig-lib-item' + (dataUrl === signatureDataUrl ? ' selected' : '');
-        item.innerHTML = `<img src="${dataUrl}"><button type="button" class="sig-lib-remove" title="Remove">&times;</button>`;
-        item.querySelector('img').addEventListener('click', () => setCurrentSignature(dataUrl));
-        item.querySelector('.sig-lib-remove').addEventListener('click', (ev) => {
+        
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.addEventListener('click', () => setCurrentSignature(dataUrl));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'sig-lib-remove';
+        removeBtn.innerHTML = '&times;';
+        removeBtn.title = 'Remove';
+        removeBtn.addEventListener('click', async (ev) => {
           ev.stopPropagation();
-          const updated = loadSignatures().filter(s => s !== dataUrl);
-          saveSignatures(updated);
+          const currentList = await loadSignatures();
+          const updated = currentList.filter(s => s !== dataUrl);
+          await saveSignatures(updated);
           if (signatureDataUrl === dataUrl) setCurrentSignature(null);
           else renderLibrary();
         });
+
+        item.appendChild(img);
+        item.appendChild(removeBtn);
         wrap.appendChild(item);
       });
     }
 
-    el('sigSaveToLibrary').addEventListener('click', () => {
-      if (!signatureDataUrl) return;
-      let list = loadSignatures();
+    el('sigSaveToLibrary').addEventListener('click', async () => {
+      if (!signatureDataUrl || !isValidSignatureDataUrl(signatureDataUrl)) return;
+      let list = await loadSignatures();
       if (list.includes(signatureDataUrl)) return;
-      if (list.length >= SIG_LIMIT) list.shift(); // drop oldest
+      if (list.length >= SIG_LIMIT) list.shift();
       list.push(signatureDataUrl);
-      saveSignatures(list);
+      await saveSignatures(list);
       renderLibrary();
+    });
+
+    // Local Backup (.json File Export)
+    el('sigExportBackup').addEventListener('click', async () => {
+      const list = await loadSignatures();
+      if (list.length === 0) {
+        alert('No signatures to export yet.');
+        return;
+      }
+      const payload = {
+        app: 'Arzi Leave Application',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        signatures: list
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const dlLink = document.createElement('a');
+      dlLink.href = URL.createObjectURL(blob);
+      dlLink.download = `arzi-signatures-backup-${new Date().toISOString().slice(0,10)}.json`;
+      dlLink.click();
+      URL.revokeObjectURL(dlLink.href);
+    });
+
+    // Local Backup (.json File Import)
+    el('sigImportBackupTrigger').addEventListener('click', () => {
+      el('sigImportFile').click();
+    });
+
+    el('sigImportFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          const imported = Array.isArray(parsed) ? parsed : parsed.signatures;
+          if (!Array.isArray(imported)) throw new Error('Invalid file structure');
+
+          const safeSignatures = imported.filter(isValidSignatureDataUrl);
+          if (safeSignatures.length === 0) {
+            alert('No valid signatures found in this backup file.');
+            return;
+          }
+
+          let current = await loadSignatures();
+          safeSignatures.forEach(sig => {
+            if (!current.includes(sig) && current.length < SIG_LIMIT) {
+              current.push(sig);
+            }
+          });
+
+          await saveSignatures(current);
+          renderLibrary();
+          alert(`Successfully imported ${safeSignatures.length} signature(s).`);
+        } catch (err) {
+          alert('Could not import signatures: invalid or corrupted JSON file.');
+        } finally {
+          e.target.value = '';
+        }
+      };
+      reader.readAsText(file);
     });
 
     // Tabs
@@ -853,6 +1011,10 @@
     el('sigUpload').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        alert('Only valid image files can be selected.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = ev => openCropper(ev.target.result);
       reader.readAsDataURL(file);
@@ -958,13 +1120,19 @@
       const sx = cropRect.x * scaleX, sy = cropRect.y * scaleY;
       const sw = cropRect.w * scaleX, sh = cropRect.h * scaleY;
 
+      // Restrict max output width to save memory and ensure snappy storage performance
+      const downScale = sw > MAX_SIGNATURE_WIDTH ? (MAX_SIGNATURE_WIDTH / sw) : 1;
+      const finalW = Math.round(sw * downScale);
+      const finalH = Math.round(sh * downScale);
+
       const canvas = document.createElement('canvas');
-      canvas.width = sw; canvas.height = sh;
+      canvas.width = finalW; 
+      canvas.height = finalH;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, finalW, finalH);
 
       if (el('sigTransparent').checked) {
-        const data = ctx.getImageData(0, 0, sw, sh);
+        const data = ctx.getImageData(0, 0, finalW, finalH);
         const d = data.data;
         for (let i = 0; i < d.length; i += 4) {
           if (d[i] > 200 && d[i+1] > 200 && d[i+2] > 200) d[i+3] = 0;
