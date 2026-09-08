@@ -396,10 +396,21 @@
       background-position: 0px 32px !important;
     }
     .margin-line-indicator {
-      display: none; position: absolute; top: 0; bottom: 0; left: 70px;
-      width: 2px; background-color: var(--margin-rule); z-index: 1; pointer-events: none;
-    }
-    /* Stops text from writing to the left of the margin line */
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 70px;
+  width: 2px;
+  background-color: var(--margin-rule);
+  z-index: 10; /* Raises the red line above the editor layer */
+  pointer-events: none;
+}
+
+/* Explicitly shows the red line when the margin checkbox is active */
+.editor-canvas-wrapper.ruled-margin .margin-line-indicator {
+  display: block !important;
+}/* Stops text from writing to the left of the margin line */
     .editor-canvas-wrapper.ruled-margin .ql-editor {
       padding-left: 85px !important;
     }
@@ -1141,15 +1152,12 @@
           const fs = parseFloat(getEditorEl().style.fontSize) || 16;
           const lh = parseFloat(el('lineHeightInput').value) || 2.0;
           const rowHeight = Math.round(fs * lh);
-          clone.style.backgroundColor = '#ffffff';
-          clone.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+          clone.style.background = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
           clone.style.backgroundPosition = '0px 32px';
           clone.style.backgroundSize = `100% ${rowHeight}px`;
         } else {
-          clone.style.backgroundImage = 'none';
-          clone.style.backgroundColor = '#ffffff';
-        }
-        const marginClone = clone.querySelector('.margin-line-indicator');
+          clone.style.background = '#ffffff';
+        }        const marginClone = clone.querySelector('.margin-line-indicator');
         if(marginClone) marginClone.style.display = 'block';
         document.body.appendChild(clone);
         try {
