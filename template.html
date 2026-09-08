@@ -329,12 +329,12 @@
   .paper .subject { font-weight: 600; }
   .paper .sig-line { margin-top: 0.75rem; }
   .paper .sig-img {
-    max-height: 58px;
-    max-width: 170px;
-    display: block;
-    margin: 0.45rem 0;
-    object-fit: contain;
-  }
+  max-height: 28px;
+  max-width: 90px;
+  display: block;
+  margin: 0.35rem 0;
+  object-fit: contain;
+}
   .paper .copy-block { margin-top: 1.6rem; font-size: 0.9em; }
   .paper table.formI {
     width: 100%;
@@ -463,7 +463,13 @@
           <option value="joining">Joining Report (after leave)</option>
         </select>
       </div>
-
+<div class="field-group">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Signature size</span>
+            <span id="sigSizeVal" style="font-size:0.8rem; font-weight:normal; color:var(--ink-soft);">38px</span>
+          </label>
+          <input type="range" id="sigSizeSlider" min="20" max="75" value="38" step="2" style="width:100%; cursor:pointer;">
+        </div>
       <div class="field-group" id="dateFieldsSingle">
         <label for="dateSingle">Date</label>
         <input type="date" id="dateSingle">
@@ -1589,6 +1595,17 @@
     renderLibrary();
     applyPaperStyle();
     render();
+    const sigSlider = document.getElementById('sigSizeSlider');
+    if (sigSlider) {
+      sigSlider.addEventListener('input', (e) => {
+        const val = e.target.value + 'px';
+        document.querySelectorAll('.paper .sig-img').forEach(img => {
+          img.style.maxHeight = val;
+        });
+        const label = document.getElementById('sigSizeVal');
+        if (label) label.textContent = val;
+      });
+    }
   </script>
 
 </body>
