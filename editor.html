@@ -1151,7 +1151,6 @@
           const fs = parseFloat(getEditorEl().style.fontSize) || 16;
           const lh = parseFloat(el('lineHeightInput').value) || 2.0;
           const rowHeight = Math.round(fs * lh);
-          
           // Draw actual SVG line paths onto an overlay so html2canvas renders them with 100% fidelity
           const linesSvg = document.createElement('div');
           linesSvg.className = 'export-lines-overlay';
@@ -1160,14 +1159,17 @@
         } else {
           clone.style.backgroundColor = '#ffffff';
         }
-        }        const marginClone = clone.querySelector('.margin-line-indicator');
-        if(marginClone) marginClone.style.display = 'block';
-        document.body.appendChild(clone);
-        try {
-          const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true });
-          return canvas;
-        } finally { document.body.removeChild(clone); }
       }
+      const marginClone = clone.querySelector('.margin-line-indicator');
+      if (marginClone) marginClone.style.display = 'block';
+      document.body.appendChild(clone);
+      try {
+        const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true });
+        return canvas;
+      } finally {
+        document.body.removeChild(clone);
+      }
+    }
       function sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt){
         const pxPerPt=canvas.width/imgWidthPt; const pagePxHeight=Math.max(1,Math.floor(contentHeightPt*pxPerPt));
         const pages=[]; let y=0;
