@@ -834,24 +834,69 @@
       function getEditorEl(){ return document.querySelector('#editor-body .ql-editor'); }
 
       // ruled lines sync
-    function updateRuledBackground(){
-        const checked = el('toggleRuled').checked;
+    // Ruled lines background updater
+      function updateRuledBackground(){
+        const toggle = document.getElementById('toggleRuled');
+        const checked = toggle ? toggle.checked : true;
         const wrapper = el('canvasWrapper');
         const editor = getEditorEl();
+        if (!editor || !wrapper) return;
+
         if(!checked){
           wrapper.style.backgroundImage = 'none';
           return;
         }
         const fs = parseFloat(editor.style.fontSize) || 16;
-        const lh = parseFloat(el('lineHeightInput').value) || 2.0;
+        const lhInput = document.getElementById('lineHeightInput');
+        const lh = parseFloat(lhInput ? lhInput.value : 2.0) || 2.0;
         const rowHeight = Math.round(fs * lh);
         
         editor.style.lineHeight = rowHeight + 'px';
         wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
-        wrapper.style.backgroundPosition = `0px 32px`;
+        wrapper.style.backgroundPosition = '0px 32px';
         wrapper.style.backgroundSize = `100% ${rowHeight}px`;
       }
-      // Draggable / Resizable
+
+      // Robust delegated listeners for all Layout controls
+      document.addEventListener('input', (e) => {
+        const ed = getEditorEl();
+        if (!ed) return;
+        if (e.target.id === 'lineHeightInput') {
+          ed.style.lineHeight = parseFloat(e.target.value) || 2.0;
+          updateRuledBackground();
+        } else if (e.target.id === 'letterSpacingInput') {
+          ed.style.letterSpacing = (parseFloat(e.target.value) || 0) + 'px';
+        }
+      });
+
+      document.addEventListener('change', (e) => {
+        const ed = getEditorEl();
+        const wrapper = el('canvasWrapper');
+        if (!ed || !wrapper) return;
+
+        if (e.target.id === 'toggleRuled') {
+          wrapper.classList.toggle('ruled-paper', e.target.checked);
+          updateRuledBackground();
+        } else if (e.target.id === 'toggleMargin') {
+          wrapper.classList.toggle('ruled-margin', e.target.checked);
+        } else if (e.target.id === 'toggleInkRealism') {
+          const ls = parseFloat((document.getElementById('letterSpacingInput') || {}).value) || 0;
+          if (e.target.checked) {
+            ed.style.fontWeight = '450';
+            ed.style.letterSpacing = (ls + 0.3) + 'px';
+            ed.style.transform = 'rotate(0.2deg)';
+          } else {
+            ed.style.fontWeight = '';
+            ed.style.letterSpacing = ls + 'px';
+            ed.style.transform = '';
+          }
+        } else if (e.target.id === 'paperTextureSelect') {
+          wrapper.className = wrapper.className.split(' ').filter(c => !c.startsWith('paper-')).join(' ');
+          if (e.target.value !== 'plain') {
+            wrapper.classList.add('paper-' + e.target.value);
+          }
+        }
+      });  // Draggable / Resizable
       function makeDraggableResizable(el, wrapper, dragHandleSelector){
         let isDrag=false, sx, sy, ix, iy;
         let isResize=false, initW, initMouseX;
