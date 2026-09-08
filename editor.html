@@ -1147,21 +1147,24 @@
         clone.querySelectorAll('.table-header .table-tools').forEach(n=>n.remove());
         clone.style.position='fixed'; clone.style.left='-9999px'; clone.style.top='0';
         clone.style.width=wrapper.clientWidth+'px'; clone.style.height='auto'; clone.style.overflow='visible';
-        clone.style.boxShadow='none'; clone.style.backgroundColor='#ffffff';
-        if(el('toggleRuled').checked){
+        clone.style.boxShadow='none'; if (el('toggleRuled').checked) {
           const fs = parseFloat(getEditorEl().style.fontSize) || 16;
           const lh = parseFloat(el('lineHeightInput').value) || 2.0;
           const rowHeight = Math.round(fs * lh);
-          clone.style.background = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
-          clone.style.backgroundPosition = '0px 32px';
-          clone.style.backgroundSize = `100% ${rowHeight}px`;
+          
+          // Draw actual SVG line paths onto an overlay so html2canvas renders them with 100% fidelity
+          const linesSvg = document.createElement('div');
+          linesSvg.className = 'export-lines-overlay';
+          linesSvg.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:0; background:repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px) 0px 32px / 100% ${rowHeight}px;`;
+          clone.insertBefore(linesSvg, clone.firstChild);
         } else {
-          clone.style.background = '#ffffff';
+          clone.style.backgroundColor = '#ffffff';
+        }
         }        const marginClone = clone.querySelector('.margin-line-indicator');
         if(marginClone) marginClone.style.display = 'block';
         document.body.appendChild(clone);
         try {
-          const canvas = await html2canvas(clone, { scale: 2, backgroundColor: null, useCORS: true, logging: false, allowTaint: true });
+          const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true });
           return canvas;
         } finally { document.body.removeChild(clone); }
       }
