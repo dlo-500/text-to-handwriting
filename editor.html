@@ -376,10 +376,14 @@
     }
     #editor-body { background: transparent !important; border: none !important; min-height: 850px; position: relative; z-index: 2; }
     .ql-container.ql-snow { border: none !important; background: transparent !important; }
-    .ql-editor {
-      min-height: 850px; padding: 3rem 2.75rem;
-      font-family: 'Lora', serif; font-size: 16px; line-height: 2;
-      color: #23283a; background: transparent !important;
+.ql-editor {
+      min-height: 850px;
+      padding: 32px 40px;
+      font-family: 'Lora', serif;
+      font-size: 16px;
+      line-height: 32px !important;
+      color: #23283a;
+      background: transparent !important;
       box-sizing: border-box;
     }
     .ql-editor p { margin: 0; padding: 0; }
@@ -387,15 +391,21 @@
     .ql-editor img { display: block; max-width: 100%; margin: 0.5rem 0; border-radius: 2px; }
 
     .editor-canvas-wrapper.ruled-paper {
-      background-image: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
+      background-image: repeating-linear-gradient(to bottom, transparent 0px, transparent 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
       background-size: 100% 32px !important;
+      background-position: 0px 32px !important;
     }
     .margin-line-indicator {
-      display: none; position: absolute; top: 0; bottom: 0; left: 64px;
+      display: none; position: absolute; top: 0; bottom: 0; left: 70px;
       width: 2px; background-color: var(--margin-rule); z-index: 1; pointer-events: none;
     }
-    .editor-canvas-wrapper.ruled-margin .margin-line-indicator { display: block; }
-
+    /* Stops text from writing to the left of the margin line */
+    .editor-canvas-wrapper.ruled-margin .ql-editor {
+      padding-left: 85px !important;
+    }
+    .editor-canvas-wrapper:not(.ruled-margin) .ql-editor {
+      padding-left: 40px !important;
+    }
     /* floating objects */
     .floating-object, .floating-table {
       position: absolute;
@@ -824,43 +834,23 @@
       function getEditorEl(){ return document.querySelector('#editor-body .ql-editor'); }
 
       // ruled lines sync
-      function updateRuledBackground(){
+    function updateRuledBackground(){
         const checked = el('toggleRuled').checked;
         const wrapper = el('canvasWrapper');
-        if(!checked){ wrapper.style.backgroundImage = 'none'; return; }
-        const fs = parseFloat(getEditorEl().style.fontSize) || 16;
+        const editor = getEditorEl();
+        if(!checked){
+          wrapper.style.backgroundImage = 'none';
+          return;
+        }
+        const fs = parseFloat(editor.style.fontSize) || 16;
         const lh = parseFloat(el('lineHeightInput').value) || 2.0;
         const rowHeight = Math.round(fs * lh);
-        wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+        
+        editor.style.lineHeight = rowHeight + 'px';
+        wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+        wrapper.style.backgroundPosition = `0px 32px`;
         wrapper.style.backgroundSize = `100% ${rowHeight}px`;
       }
-      el('lineHeightInput').addEventListener('input', e=>{ getEditorEl().style.lineHeight = parseFloat(e.target.value)||2.0; updateRuledBackground(); });
-      el('letterSpacingInput').addEventListener('input', e=>{ getEditorEl().style.letterSpacing = (parseFloat(e.target.value)||0)+'px'; });
-      document.querySelector('.ql-size').addEventListener('change', function(){ if(this.value){ getEditorEl().style.fontSize=this.value; updateRuledBackground(); } });
-      el('toggleRuled').addEventListener('change', e=>{ el('canvasWrapper').classList.toggle('ruled-paper',e.target.checked); updateRuledBackground(); });
-      el('toggleMargin').addEventListener('change', e=>{ el('canvasWrapper').classList.toggle('ruled-margin',e.target.checked); });
-      el('toggleInkRealism').addEventListener('change', e=>{
-        const ed = getEditorEl();
-        if(e.target.checked){ ed.style.fontWeight='450'; ed.style.letterSpacing=(parseFloat(el('letterSpacingInput').value)||0)+0.3+'px'; ed.style.transform='rotate(0.2deg)'; }
-        else { ed.style.fontWeight=''; ed.style.letterSpacing=(parseFloat(el('letterSpacingInput').value)||0)+'px'; ed.style.transform=''; }
-      });
-      el('paperTextureSelect').addEventListener('change', e=>{
-        const wrapper = el('canvasWrapper');
-        wrapper.className = wrapper.className.split(' ').filter(c=>!c.startsWith('paper-')).join(' ');
-        if(e.target.value!=='plain') wrapper.classList.add('paper-'+e.target.value);
-      });
-      el('customFontUpload').addEventListener('change', async e=>{
-        const file=e.target.files[0]; if(!file) return;
-        try {
-          const font = new FontFace('customHand', await file.arrayBuffer());
-          await font.load(); document.fonts.add(font);
-          const sel = document.querySelector('.ql-font');
-          const opt = document.createElement('option'); opt.value='customHand'; opt.textContent='✏️ Custom';
-          sel.appendChild(opt); sel.value='customHand'; quill.format('font','customHand');
-          const style=document.createElement('style'); style.textContent=`.ql-font-customHand { font-family: 'customHand', cursive; }`; document.head.appendChild(style);
-        } catch(err){ alert('Font load failed: '+err.message); }
-      });
-
       // Draggable / Resizable
       function makeDraggableResizable(el, wrapper, dragHandleSelector){
         let isDrag=false, sx, sy, ix, iy;
@@ -1106,8 +1096,13 @@
           const fs = parseFloat(getEditorEl().style.fontSize) || 16;
           const lh = parseFloat(el('lineHeightInput').value) || 2.0;
           const rowHeight = Math.round(fs * lh);
-          clone.style.backgroundImage = `repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+          clone.style.backgroundColor = '#ffffff';
+          clone.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
+          clone.style.backgroundPosition = '0px 32px';
           clone.style.backgroundSize = `100% ${rowHeight}px`;
+        } else {
+          clone.style.backgroundImage = 'none';
+          clone.style.backgroundColor = '#ffffff';
         } else clone.style.backgroundImage = 'none';
         const marginClone = clone.querySelector('.margin-line-indicator');
         if(marginClone) marginClone.style.display = 'block';
