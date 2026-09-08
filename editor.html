@@ -55,7 +55,7 @@
     .editor-shell { display: flex; flex-direction: column; align-items: center; padding: 1rem 1rem 2rem; }
     .page-container { width: 100%; max-width: 820px; }
 
-    /* TOOLBAR */
+    /* ----- TOOLBAR: clean two-row layout ----- */
     #toolbar {
       background: var(--bg-surface);
       border: 1px solid var(--border-color);
@@ -65,21 +65,18 @@
       flex-direction: column;
       gap: 8px;
       padding: 10px 14px;
-      overflow: visible !important;
     }
     .toolbar-row {
-      display: flex !important;
-      flex-wrap: nowrap !important;
-      align-items: center !important;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px 10px;
-      overflow: visible !important;
-      position: relative;
     }
     .toolbar-group {
-      display: inline-flex !important;
-      align-items: center !important;
-      gap: 4px !important;
-      flex-shrink: 0 !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
     }
     .toolbar-divider {
       width: 1px;
@@ -89,44 +86,52 @@
       margin: 0 4px;
     }
 
-    /* Ribbon tabs */
+    /* ---- Ribbon tabs (Home / Insert / Layout) ---- */
     .ribbon-tabs {
-      display: flex !important;
-      gap: 14px !important;
+      display: flex;
+      gap: 2px;
       border-bottom: 1px solid var(--border-color);
       margin: -10px -14px 10px;
       padding: 0 10px;
     }
-    .ribbon-tab {
-      background: transparent !important;
-      border: none !important;
-      border-bottom: 2px solid transparent !important;
-      padding: 8px 20px !important;
-      font-size: 0.86rem !important;
-      font-weight: 600 !important;
-      font-family: inherit !important;
-      color: var(--text-soft) !important;
-      cursor: pointer;
-      border-radius: 4px 4px 0 0 !important;
-      height: 36px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      white-space: nowrap !important;
-    }
-    .ribbon-tab:hover {
-      color: var(--text-color) !important;
-      background: var(--bg-card) !important;
-    }
-    .ribbon-tab.active {
-      color: var(--maroon-theme) !important;
-      border-bottom: 2px solid var(--maroon-theme) !important;
-      background: var(--bg-card) !important;
-    }
+    .ribbon-tabs {
+  display: flex !important;
+  gap: 14px !important;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 8px;
+  padding-bottom: 0;
+}
+.ribbon-tab {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 8px 20px !important;
+  font-size: 0.86rem !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  color: var(--text-soft) !important;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0 !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+}
+.ribbon-tab:hover {
+  color: var(--text-color) !important;
+  background: var(--bg-card) !important;
+}
+.ribbon-tab.active {
+  color: var(--maroon-theme) !important;
+  border-bottom: 2px solid var(--maroon-theme) !important;
+  background: var(--bg-card) !important;
+}
     .ribbon-panel { display: none; }
     .ribbon-panel.active { display: block; }
     .toolbar-group button svg { width: 16px !important; height: 16px !important; }
 
+    /* unified control sizing */
     .toolbar-group select,
     .toolbar-group button,
     .toolbar-group input[type="number"],
@@ -150,10 +155,6 @@
       white-space: nowrap !important;
       flex-shrink: 0 !important;
     }
-    .toolbar-group button {
-      min-width: 32px !important;
-      padding: 0 8px !important;
-    }
     .toolbar-group select {
       padding: 4px 6px !important;
       height: 32px !important;
@@ -164,6 +165,14 @@
     #paperTextureSelect:hover {
       border-color: var(--maroon-theme) !important;
     }
+    /* Quill hides the original <select> once it builds the replacement
+       .ql-picker widget (inline style="display:none"). The generic rule
+       above forces display:inline-flex !important on every select —
+       needed for the two plain selects Quill never touches (#snippetSelect,
+       #paperTextureSelect) — but that same !important was beating Quill's
+       inline style and making the raw, unstyled native <select> pop back
+       into view right next to the real widget. This re-hides just the
+       four selects Quill actually converts. */
     .toolbar-group select.ql-font,
     .toolbar-group select.ql-size,
     .toolbar-group select.ql-color,
@@ -171,7 +180,17 @@
       display: none !important;
     }
 
-    /* Quill Dropdown Pickers */
+    /* ---- Quill dropdown pickers (Font, Size, Color, Highlight) -----
+       Quill swaps each <select> for a .ql-picker widget at runtime:
+       a clickable .ql-picker-label plus an absolutely-positioned
+       .ql-picker-options panel. The old rules put border/padding/height
+       directly on the outer .ql-picker wrapper, which double-boxed it
+       against Quill's own .ql-picker-label sizing (14px font, fixed
+       22px line-height) — that mismatch is what made these look
+       crowded and vertically misaligned. The dropdown panels were also
+       left completely unstyled: plain white, no border/shadow/theme
+       color, and no height cap on the 24-item font list. This section
+       targets the actual nodes instead. */
     .toolbar-group .ql-picker {
       height: 32px !important;
       display: inline-flex !important;
@@ -217,11 +236,6 @@
     .toolbar-group .ql-picker.ql-background { width: 40px !important; }
 
     .toolbar-group .ql-picker-options {
-      display: none !important;
-      position: absolute !important;
-      top: 100% !important;
-      left: 0 !important;
-      z-index: 1500 !important;
       background: var(--bg-card) !important;
       border: 1px solid var(--border-color) !important;
       border-radius: 6px !important;
@@ -230,9 +244,7 @@
       margin-top: 4px !important;
       max-height: 260px;
       overflow-y: auto;
-    }
-    .toolbar-group .ql-picker.ql-expanded .ql-picker-options {
-      display: block !important;
+      z-index: 50 !important;
     }
     .toolbar-group .ql-picker.ql-font .ql-picker-options,
     .toolbar-group .ql-picker.ql-size .ql-picker-options {
@@ -250,17 +262,19 @@
       background: var(--bg-surface) !important;
       color: var(--maroon-theme) !important;
     }
-    .toolbar-group .ql-color.ql-expanded .ql-picker-options,
-    .toolbar-group .ql-background.ql-expanded .ql-picker-options {
-      width: 132px !important;
-      display: flex !important;
-      flex-wrap: wrap !important;
-      gap: 4px !important;
+    /* color / highlight swatch grids */
+    .toolbar-group .ql-color .ql-picker-options,
+    .toolbar-group .ql-background .ql-picker-options {
+      width: 132px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: none;
     }
     .toolbar-group .ql-color .ql-picker-item,
     .toolbar-group .ql-background .ql-picker-item {
-      width: 22px !important;
-      height: 22px !important;
+      width: 20px !important;
+      height: 20px !important;
       padding: 0 !important;
       border: 1px solid var(--border-color) !important;
       border-radius: 3px !important;
@@ -269,6 +283,11 @@
     .toolbar-group .ql-background .ql-picker-item[data-value=""] {
       background-image: linear-gradient(to top right, transparent 46%, var(--maroon-theme) 48%, var(--maroon-theme) 52%, transparent 54%) !important;
     }
+    /* Quill hardcodes icon stroke/fill to #444 — barely visible in dark mode.
+       (.ql-color-label is excluded: Quill updates its fill/stroke at
+       runtime to preview the currently selected text/highlight color,
+       and an !important override here would permanently pin that swatch
+       to the theme color instead, hiding which color is active.) */
     .toolbar-group .ql-stroke:not(.ql-color-label) { stroke: var(--text-color) !important; }
     .toolbar-group .ql-fill:not(.ql-color-label) { fill: var(--text-color) !important; }
     .toolbar-group button.ql-active,
@@ -348,7 +367,7 @@
     }
     .font-upload-btn:hover { border-color: var(--maroon-theme) !important; }
 
-    /* Editor Canvas and Lines */
+    /* canvas */
     .editor-canvas-wrapper {
       position: relative; width: 100%; background: #ffffff;
       border: 1px solid var(--border-color); border-radius: 0 0 6px 6px;
@@ -357,8 +376,7 @@
     }
     #editor-body { background: transparent !important; border: none !important; min-height: 850px; position: relative; z-index: 2; }
     .ql-container.ql-snow { border: none !important; background: transparent !important; }
-
-    .ql-editor {
+.ql-editor {
       min-height: 850px;
       padding: 32px 40px;
       font-family: 'Lora', serif;
@@ -372,29 +390,34 @@
     .ql-editor.ql-blank::before { font-style: normal; color: #9a9488; }
     .ql-editor img { display: block; max-width: 100%; margin: 0.5rem 0; border-radius: 2px; }
 
-    /* Red Margin Indicator */
+    .editor-canvas-wrapper.ruled-paper {
+      background-image: repeating-linear-gradient(to bottom, transparent 0px, transparent 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
+      background-size: 100% 32px !important;
+      background-position: 0px 32px !important;
+    }
     .margin-line-indicator {
-      display: none;
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 70px;
-      width: 2px;
-      background-color: var(--margin-rule);
-      z-index: 10;
-      pointer-events: none;
-    }
-    .editor-canvas-wrapper.ruled-margin .margin-line-indicator {
-      display: block !important;
-    }
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 70px;
+  width: 2px;
+  background-color: var(--margin-rule);
+  z-index: 10; /* Raises the red line above the editor layer */
+  pointer-events: none;
+}
+
+/* Explicitly shows the red line when the margin checkbox is active */
+.editor-canvas-wrapper.ruled-margin .margin-line-indicator {
+  display: block !important;
+}/* Stops text from writing to the left of the margin line */
     .editor-canvas-wrapper.ruled-margin .ql-editor {
       padding-left: 85px !important;
     }
     .editor-canvas-wrapper:not(.ruled-margin) .ql-editor {
       padding-left: 40px !important;
     }
-
-    /* Floating Objects */
+    /* floating objects */
     .floating-object, .floating-table {
       position: absolute;
       border: 1px dashed var(--maroon-theme);
@@ -504,7 +527,7 @@
       padding: 0.6rem 0.5rem; border-top: 1px solid var(--border-color);
     }
 
-    /* Modals */
+    /* modals */
     .sig-modal, .pdf-modal, .draft-modal {
       display: none; position: fixed; inset: 0;
       background: rgba(20,20,25,0.65); z-index: 1200;
@@ -549,8 +572,6 @@
     .paper-parchment .ql-editor { background: #f3ead8; }
     .paper-scanner .ql-editor { background: #f5f2ec; }
 
-    #panel-layout .ql-picker { display: none !important; }
-
     @media print {
       body * { visibility: hidden; }
       .editor-canvas-wrapper, .editor-canvas-wrapper * { visibility: visible; }
@@ -559,10 +580,86 @@
         border: none !important; box-shadow: none !important;
         background: #fff !important;
       }
+      .editor-canvas-wrapper.ruled-paper {
+        background-image: repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff 31px, #d4d9e2 31px, #d4d9e2 32px) !important;
+        background-size: 100% 32px !important;
+      }
       .margin-line-indicator { display: block !important; background: #e78c8c !important; }
       .floating-object, .floating-table { border: none !important; }
       .del-btn, .resize-handle, .add-col-btn, .add-row-btn, .table-header .table-tools { display: none !important; }
     }
+    @media (max-width: 700px) {
+      #toolbar { flex-direction: column; align-items: stretch; gap: 4px; }
+      .toolbar-divider { display: none; }
+      .toolbar-row { flex-wrap: wrap; }
+    }
+    #panel-layout .ql-picker {
+  display: none !important;
+}
+
+    /* Keep all Home ribbon items on a single, non-wrapping row */
+#toolbar .toolbar-row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  overflow-x: auto;
+}
+
+/* Ensure color dropdown only displays on click/hover and has high z-index */
+/* Ensure dropdowns pop downward as floating overlays without distorting the row */
+#toolbar {
+  overflow: visible !important;
+}
+#toolbar .toolbar-row {
+  overflow: visible !important;
+  position: relative;
+}
+
+/* Hide swatch menus completely until clicked */
+.ql-snow .ql-picker .ql-picker-options {
+  display: none !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  z-index: 1500 !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18) !important;
+}
+
+/* Show only when expanded */
+.ql-snow .ql-picker.ql-expanded .ql-picker-options {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  width: 120px !important;
+  padding: 6px !important;
+  gap: 4px !important;
+}
+
+/* Fix swatch item sizing */
+.ql-snow .ql-picker.ql-color .ql-picker-item,
+.ql-snow .ql-picker.ql-background .ql-picker-item {
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 3px !important;
+  cursor: pointer;
+}
+/* Give buttons clean margins and prevent wrapping */
+.toolbar-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+}
+
+.toolbar-group button {
+  min-width: 30px !important;
+  height: 32px !important;
+  padding: 0 6px !important;
+}
   </style>
 </head>
 <body>
@@ -570,7 +667,7 @@
     <div class="header-left">
       <button class="theme-toggle-btn" id="btnThemeToggle"><span id="themeIcon">🌙</span> <span id="themeText">Dark</span></button>
       <a class="back-link" href="#" id="backLink">← Back</a>
-      <a class="template-nav-link" href="template.html" id="templateLink">Pre-formatted Leave Form →</a>
+      <a class="template-nav-link" href="#" id="templateLink">Pre-formatted Leave Form →</a>
       <button class="btn" id="btnDrafts" style="font-size:0.75rem;">📂 Drafts</button>
     </div>
     <div class="export-actions">
@@ -583,6 +680,7 @@
 
   <div class="editor-shell">
     <div class="page-container">
+      <!-- TOOLBAR: Word-style ribbon — Home / Insert / Layout tabs -->
       <div id="toolbar">
         <div class="ribbon-tabs" role="tablist">
           <button type="button" class="ribbon-tab active" data-panel="panel-home">Home</button>
@@ -590,7 +688,7 @@
           <button type="button" class="ribbon-tab" data-panel="panel-layout">Layout</button>
         </div>
 
-        <!-- HOME -->
+        <!-- HOME: typography, formatting, alignment, lists -->
         <div class="ribbon-panel active" id="panel-home">
           <div class="toolbar-row">
             <span class="toolbar-group">
@@ -640,15 +738,14 @@
           </div>
         </div>
 
-        <!-- INSERT -->
+        <!-- INSERT: images, signature, table, stamp, snippets -->
         <div class="ribbon-panel" id="panel-insert">
           <div class="toolbar-row">
-            <span class="toolbar-group" style="gap: 12px; display: inline-flex;">
-              <button class="ql-custom-image" id="btnInsertImage" style="width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;"></button>
-              <button class="ql-signature" id="btnInsertSig" style="width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;"></button>
-              <button class="btn" id="btnInsertTable" style="font-weight: 600 !important; width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;">📊 Table</button>
-              <button class="btn" id="btnStamp" style="font-weight: 600 !important; width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;">🏛️ Stamp</button>
-            </span>
+            <span class="toolbar-group" style="gap: 48px; display: inline-flex;">
+             <button class="ql-custom-image" id="btnInsertImage" style="width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;"></button>
+<button class="ql-signature" id="btnInsertSig" style="width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;"></button>
+<button class="btn" id="btnInsertTable" style="font-weight: 600 !important; width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;">📊 Table</button>
+<button class="btn" id="btnStamp" style="font-weight: 600 !important; width: auto !important; padding: 6px 14px !important; white-space: nowrap !important; font-size: 0.82rem !important;">🏛️ Stamp</button>            </span>
             <span class="toolbar-divider"></span>
             <span class="toolbar-group">
               <select id="snippetSelect" style="height:32px;font-size:0.8rem;padding:4px 10px;">
@@ -662,7 +759,7 @@
           </div>
         </div>
 
-        <!-- LAYOUT -->
+        <!-- LAYOUT: spacing + paper style -->
         <div class="ribbon-panel" id="panel-layout">
           <div class="toolbar-row">
             <span class="toolbar-group">
@@ -688,7 +785,7 @@
       </div>
 
       <!-- CANVAS -->
-      <div class="editor-canvas-wrapper ruled-margin" id="canvasWrapper">
+      <div class="editor-canvas-wrapper ruled-paper ruled-margin" id="canvasWrapper">
         <div class="margin-line-indicator" id="marginLine"></div>
         <div id="editor-body"></div>
       </div>
@@ -714,61 +811,43 @@
     (function(){
       const el = id => document.getElementById(id);
 
-      // Theme
-      function initTheme(){
-        const saved = localStorage.getItem('arzi_editor_theme') || 'light';
-        if(saved === 'dark'){
-          document.body.classList.add('dark-mode');
-          el('themeIcon').textContent = '☀️';
-          el('themeText').textContent = 'Light';
-        }
-      }
-      el('btnThemeToggle').addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('dark-mode');
-        localStorage.setItem('arzi_editor_theme', isDark ? 'dark' : 'light');
-        el('themeIcon').textContent = isDark ? '☀️' : '🌙';
-        el('themeText').textContent = isDark ? 'Light' : 'Dark';
-      });
+      // theme
+      function initTheme(){ const saved=localStorage.getItem('arzi_editor_theme')||'light'; if(saved==='dark'){ document.body.classList.add('dark-mode'); el('themeIcon').textContent='☀️'; el('themeText').textContent='Light'; } }
+      el('btnThemeToggle').addEventListener('click',()=>{ const isDark=document.body.classList.toggle('dark-mode'); localStorage.setItem('arzi_editor_theme',isDark?'dark':'light'); el('themeIcon').textContent=isDark?'☀️':'🌙'; el('themeText').textContent=isDark?'Light':'Dark'; });
       initTheme();
 
-      // Ribbon Tabs
-      document.querySelectorAll('.ribbon-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
-          document.querySelectorAll('.ribbon-panel').forEach(p => p.classList.remove('active'));
+      // ribbon tabs
+      document.querySelectorAll('.ribbon-tab').forEach(tab=>{
+        tab.addEventListener('click', ()=>{
+          document.querySelectorAll('.ribbon-tab').forEach(t=>t.classList.remove('active'));
+          document.querySelectorAll('.ribbon-panel').forEach(p=>p.classList.remove('active'));
           tab.classList.add('active');
-          const panel = el(tab.dataset.panel);
-          if (panel) panel.classList.add('active');
+          el(tab.dataset.panel).classList.add('active');
         });
       });
 
-      // Header Navigation
-      el('backLink').addEventListener('click', e => {
+      // header links
+      el('backLink').addEventListener('click', e=>{
         e.preventDefault();
-        if(window.history.length > 1) { window.history.back(); }
+        if(window.history.length>1){ window.history.back(); }
       });
+      // NOTE: this template link's real destination file isn't known —
+      // point href at the actual leave-form template page in your repo.
 
-      // Quill Initialization
+      // Quill
       const Font = Quill.import('formats/font');
       Font.whitelist = ['arial','georgia','lora','playfair','caveat','caveatbrush','kalam','shadows','indie','patrick','handlee','gochi','architects','covered','nanum','marker','rocksalt','dancing','sacramento','satisfy','pacifico','greatvibes','allura','yellowtail','homemade'];
       Quill.register(Font, true);
       const Size = Quill.import('attributors/style/size');
       Size.whitelist = ['12px','14px','16px','18px','20px','24px','28px','32px'];
       Quill.register(Size, true);
+      const quill = new Quill('#editor-body', { theme: 'snow', modules: { toolbar: '#toolbar' }, placeholder: 'Start writing…' });
+      function getEditorEl(){ return document.querySelector('#editor-body .ql-editor'); }
 
-      const quill = new Quill('#editor-body', {
-        theme: 'snow',
-        modules: { toolbar: '#toolbar' },
-        placeholder: 'Start writing…'
-      });
-
-      function getEditorEl(){
-        return document.querySelector('#editor-body .ql-editor');
-      }
-
-      // Ruled Lines Engine
+      // ruled lines sync
+    // Ruled lines background updater
       function updateRuledBackground(){
-        const toggle = el('toggleRuled');
+        const toggle = document.getElementById('toggleRuled');
         const checked = toggle ? toggle.checked : true;
         const wrapper = el('canvasWrapper');
         const editor = getEditorEl();
@@ -779,42 +858,44 @@
           return;
         }
         const fs = parseFloat(editor.style.fontSize) || 16;
-        const lhInput = el('lineHeightInput');
+        const lhInput = document.getElementById('lineHeightInput');
         const lh = parseFloat(lhInput ? lhInput.value : 2.0) || 2.0;
         const rowHeight = Math.round(fs * lh);
-
+        
         editor.style.lineHeight = rowHeight + 'px';
-        wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px)`;
+        wrapper.style.backgroundImage = `repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight-1}px, #d4d9e2 ${rowHeight-1}px, #d4d9e2 ${rowHeight}px)`;
         wrapper.style.backgroundPosition = '0px 32px';
         wrapper.style.backgroundSize = `100% ${rowHeight}px`;
       }
 
-      // Layout Delegated Event Listeners
-      document.addEventListener('input', e => {
+      // Robust delegated listeners for all Layout controls
+      document.addEventListener('input', (e) => {
         const ed = getEditorEl();
         if (!ed) return;
         if (e.target.id === 'lineHeightInput') {
+          ed.style.lineHeight = parseFloat(e.target.value) || 2.0;
           updateRuledBackground();
         } else if (e.target.id === 'letterSpacingInput') {
           ed.style.letterSpacing = (parseFloat(e.target.value) || 0) + 'px';
         }
       });
 
-      document.addEventListener('change', e => {
+      document.addEventListener('change', (e) => {
         const ed = getEditorEl();
         const wrapper = el('canvasWrapper');
         if (!ed || !wrapper) return;
 
         if (e.target.id === 'toggleRuled') {
+          wrapper.classList.toggle('ruled-paper', e.target.checked);
           updateRuledBackground();
         } else if (e.target.id === 'toggleMargin') {
           wrapper.classList.toggle('ruled-margin', e.target.checked);
         } else if (e.target.id === 'toggleInkRealism') {
-          const ls = parseFloat((el('letterSpacingInput') || {}).value) || 0;
+          const ls = parseFloat((document.getElementById('letterSpacingInput') || {}).value) || 0;
           if (e.target.checked) {
             ed.style.fontWeight = '450';
             ed.style.letterSpacing = (ls + 0.3) + 'px';
-            ed.style.transform = 'rotate(0.15deg)';
+            ed.style.transform = 'rotate(0.2deg)';
           } else {
             ed.style.fontWeight = '';
             ed.style.letterSpacing = ls + 'px';
@@ -826,52 +907,29 @@
             wrapper.classList.add('paper-' + e.target.value);
           }
         }
-      });
-
-      // Draggable / Resizable Engine
-      function makeDraggableResizable(obj, wrapper, dragHandleSelector){
-        let isDrag = false, sx, sy, ix, iy;
-        let isResize = false, initW, initMouseX;
-        const delBtn = obj.querySelector('.del-btn');
-        const resizeHandle = obj.querySelector('.resize-handle');
-        const handle = dragHandleSelector ? obj.querySelector(dragHandleSelector) : obj;
-
-        handle.addEventListener('mousedown', e => {
+      });  // Draggable / Resizable
+      function makeDraggableResizable(el, wrapper, dragHandleSelector){
+        let isDrag=false, sx, sy, ix, iy;
+        let isResize=false, initW, initMouseX;
+        const delBtn = el.querySelector('.del-btn');
+        const resizeHandle = el.querySelector('.resize-handle');
+        const handle = dragHandleSelector ? el.querySelector(dragHandleSelector) : el;
+        handle.addEventListener('mousedown', e=>{
           if(e.target === delBtn || e.target === resizeHandle) return;
-          isDrag = true;
-          sx = e.clientX; sy = e.clientY;
-          ix = obj.offsetLeft; iy = obj.offsetTop;
-          e.preventDefault();
+          isDrag=true; sx=e.clientX; sy=e.clientY; ix=el.offsetLeft; iy=el.offsetTop; e.preventDefault();
         });
-
-        if (resizeHandle) {
-          resizeHandle.addEventListener('mousedown', e => {
-            isResize = true;
-            initW = obj.offsetWidth;
-            initMouseX = e.clientX;
-            e.stopPropagation();
-            e.preventDefault();
-          });
-        }
-
-        window.addEventListener('mousemove', e => {
-          if(isDrag){
-            const dx = e.clientX - sx, dy = e.clientY - sy;
-            obj.style.left = Math.max(0, ix + dx) + 'px';
-            obj.style.top = Math.max(0, iy + dy) + 'px';
-          } else if(isResize){
-            const dw = e.clientX - initMouseX;
-            obj.style.width = Math.max(60, initW + dw) + 'px';
-          }
+        resizeHandle.addEventListener('mousedown', e=>{
+          isResize=true; initW=el.offsetWidth; initMouseX=e.clientX; e.stopPropagation(); e.preventDefault();
         });
-
-        window.addEventListener('mouseup', () => { isDrag = false; isResize = false; });
-        if (delBtn) {
-          delBtn.addEventListener('click', e => { e.stopPropagation(); wrapper.removeChild(obj); });
-        }
+        window.addEventListener('mousemove', e=>{
+          if(isDrag){ const dx=e.clientX-sx, dy=e.clientY-sy; el.style.left=Math.max(0,ix+dx)+'px'; el.style.top=Math.max(0,iy+dy)+'px'; }
+          else if(isResize){ const dw=e.clientX-initMouseX; el.style.width=Math.max(60,initW+dw)+'px'; }
+        });
+        window.addEventListener('mouseup', ()=>{ isDrag=false; isResize=false; });
+        delBtn.addEventListener('click', (e)=>{ e.stopPropagation(); wrapper.removeChild(el); });
       }
 
-      // Image Insertion
+      // Image
       function createFloatingImage(dataUrl){
         const wrapper = el('canvasWrapper');
         const obj = document.createElement('div');
@@ -881,108 +939,70 @@
         wrapper.appendChild(obj);
         makeDraggableResizable(obj, wrapper);
       }
-      el('btnInsertImage').addEventListener('click', () => el('generalImageInput').click());
-      el('generalImageInput').addEventListener('change', e => {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => createFloatingImage(ev.target.result);
-        reader.readAsDataURL(file);
-        e.target.value = '';
+      el('btnInsertImage').addEventListener('click', ()=>el('generalImageInput').click());
+      el('generalImageInput').addEventListener('change', e=>{
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=ev=>{ createFloatingImage(ev.target.result); };
+        reader.readAsDataURL(file); e.target.value='';
+      });
+      canvasWrapper.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
+      canvasWrapper.addEventListener('drop', e=>{
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if(files.length && files[0].type.startsWith('image/')){
+          const reader = new FileReader();
+          reader.onload = ev => { createFloatingImage(ev.target.result); };
+          reader.readAsDataURL(files[0]);
+        }
       });
 
-      // Signature Vault
-      const DB_NAME = 'ArziSignaturesDB', STORE_NAME = 'signatures';
-      function openDatabase(){
-        return new Promise((resolve, reject) => {
-          const req = indexedDB.open(DB_NAME, 1);
-          req.onupgradeneeded = e => {
-            const db = e.target.result;
-            if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          };
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        });
-      }
-      function isValidSignatureDataUrl(d){
-        return typeof d === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(d);
-      }
-      async function loadSignaturesFromVault(){
-        try {
-          const db = await openDatabase();
-          return new Promise(resolve => {
-            const tx = db.transaction(STORE_NAME, 'readonly');
-            const store = tx.objectStore(STORE_NAME);
-            const req = store.getAll();
-            req.onsuccess = () => {
-              const list = (req.result || []).map(i => i.data).filter(isValidSignatureDataUrl);
-              resolve(list.length ? list : fallbackLocalSignatures());
-            };
-            req.onerror = () => resolve(fallbackLocalSignatures());
-          });
-        } catch { return fallbackLocalSignatures(); }
-      }
-      function fallbackLocalSignatures(){
-        try {
-          const list = JSON.parse(localStorage.getItem('arzi_signatures_v1')) || [];
-          return list.filter(isValidSignatureDataUrl);
-        } catch { return []; }
-      }
+      // Signature
+      const DB_NAME='ArziSignaturesDB', STORE_NAME='signatures';
+      function openDatabase(){ return new Promise((resolve,reject)=>{ const req=indexedDB.open(DB_NAME,1); req.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'}); }; req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error); }); }
+      function isValidSignatureDataUrl(d){ return typeof d==='string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(d); }
+      async function loadSignaturesFromVault(){ try { const db=await openDatabase(); return new Promise(resolve=>{ const tx=db.transaction(STORE_NAME,'readonly'); const store=tx.objectStore(STORE_NAME); const req=store.getAll(); req.onsuccess=()=>{ const list=(req.result||[]).map(i=>i.data).filter(isValidSignatureDataUrl); resolve(list.length?list:fallbackLocalSignatures()); }; req.onerror=()=>resolve(fallbackLocalSignatures()); }); } catch { return fallbackLocalSignatures(); } }
+      function fallbackLocalSignatures(){ try { const list=JSON.parse(localStorage.getItem('arzi_signatures_v1'))||[]; return list.filter(isValidSignatureDataUrl); } catch { return []; } }
       function createFloatingSignature(dataUrl){
         if(!isValidSignatureDataUrl(dataUrl)) return;
-        const wrapper = el('canvasWrapper');
-        const sigBox = document.createElement('div');
-        sigBox.className = 'floating-object';
-        sigBox.style.left = '320px'; sigBox.style.top = '480px'; sigBox.style.width = '140px';
+        const wrapper=el('canvasWrapper');
+        const sigBox=document.createElement('div');
+        sigBox.className='floating-object';
+        sigBox.style.left='320px'; sigBox.style.top='480px'; sigBox.style.width='140px';
         sigBox.innerHTML = `<img src="${dataUrl}"><button class="del-btn">&times;</button><div class="resize-handle"></div>`;
         wrapper.appendChild(sigBox);
         makeDraggableResizable(sigBox, wrapper);
       }
       async function openSignaturePicker(){
-        const signatures = await loadSignaturesFromVault();
-        const grid = el('sigModalGrid');
-        grid.innerHTML = '';
-        if(signatures.length === 0){
-          grid.innerHTML = '<p style="color:#888;">No signatures found in vault.</p>';
-        } else {
-          signatures.forEach(dataUrl => {
-            const card = document.createElement('div');
-            card.className = 'sig-card';
-            const img = document.createElement('img');
-            img.src = dataUrl;
-            card.appendChild(img);
-            card.addEventListener('click', () => {
-              createFloatingSignature(dataUrl);
-              el('sigPickerModal').style.display = 'none';
-            });
-            grid.appendChild(card);
-          });
-        }
-        el('sigPickerModal').style.display = 'flex';
+        const signatures=await loadSignaturesFromVault();
+        const grid=el('sigModalGrid'); grid.innerHTML='';
+        if(signatures.length===0){ grid.innerHTML='<p style="color:#888;">No signatures in vault.</p>'; }
+        else { signatures.forEach(dataUrl=>{ const card=document.createElement('div'); card.className='sig-card'; const img=document.createElement('img'); img.src=dataUrl; card.appendChild(img); card.addEventListener('click',()=>{ createFloatingSignature(dataUrl); el('sigPickerModal').style.display='none'; }); grid.appendChild(card); }); }
+        el('sigPickerModal').style.display='flex';
       }
       el('btnInsertSig').addEventListener('click', openSignaturePicker);
-      el('sigPickerClose').addEventListener('click', () => el('sigPickerModal').style.display = 'none');
+      el('sigPickerClose').addEventListener('click',()=>{ el('sigPickerModal').style.display='none'; });
 
-      // Stamp Tool
-      el('btnStamp').addEventListener('click', () => el('stampImageInput').click());
-      el('stampImageInput').addEventListener('change', e => {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const wrapper = el('canvasWrapper');
-          const stamp = document.createElement('div');
-          stamp.className = 'floating-object';
-          stamp.style.cssText = 'position:absolute; left:100px; top:200px; width:120px; height:120px; border-radius:50%; border:2px solid #7a2331; background:rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; z-index:90; cursor:move; overflow:hidden;';
-          stamp.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:contain;"><button class="del-btn">&times;</button><div class="resize-handle"></div>`;
+      // Stamp
+      el('btnStamp').addEventListener('click',()=>{ el('stampImageInput').click(); });
+      el('stampImageInput').addEventListener('change', e=>{
+        const file=e.target.files[0]; if(!file) return;
+        const reader=new FileReader();
+        reader.onload=ev=>{
+          const wrapper=el('canvasWrapper');
+          const stamp=document.createElement('div');
+          stamp.className='floating-object';
+          stamp.style.cssText='position:absolute; left:100px; top:200px; width:120px; height:120px; border-radius:50%; border:2px solid #7a2331; background:rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; z-index:90; cursor:move; overflow:hidden;';
+          stamp.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:contain;"><input type="range" min="0.2" max="1" step="0.05" value="0.8" style="position:absolute;bottom:-20px;width:80px;"><button class="del-btn">&times;</button><div class="resize-handle"></div>`;
+          const slider = stamp.querySelector('input[type="range"]');
+          slider.addEventListener('input', ()=>{ stamp.style.opacity = slider.value; });
           wrapper.appendChild(stamp);
           makeDraggableResizable(stamp, wrapper);
         };
-        reader.readAsDataURL(file);
-        e.target.value = '';
+        reader.readAsDataURL(file); e.target.value='';
       });
 
-      // Table Tool
+      // Table
       function createTable(rows, cols) {
         const wrapper = el('canvasWrapper');
         const tableDiv = document.createElement('div');
@@ -993,303 +1013,204 @@
         header.className = 'table-header';
         header.innerHTML = `<span>📋 Table</span><div class="table-tools"><button data-action="delRow">− Row</button><button data-action="delCol">− Col</button><button data-action="addRow">+ Row</button><button data-action="addCol">+ Col</button></div>`;
         tableDiv.appendChild(header);
-
         const table = document.createElement('table');
         let html = '<thead><tr>';
-        for(let i = 0; i < cols; i++) html += `<th contenteditable="true">Header ${i + 1}</th>`;
+        for(let i=0;i<cols;i++) html += `<th contenteditable="true">Header ${i+1}</th>`;
         html += '</tr></thead><tbody>';
-        for(let r = 0; r < rows; r++){
+        for(let r=0;r<rows;r++){
           html += '<tr>';
-          for(let c = 0; c < cols; c++) html += `<td contenteditable="true"></td>`;
+          for(let c=0;c<cols;c++) html += `<td contenteditable="true"></td>`;
           html += '</tr>';
         }
         html += '</tbody>';
         table.innerHTML = html;
         tableDiv.appendChild(table);
-
         const addColBtn = document.createElement('button');
         addColBtn.className = 'add-col-btn'; addColBtn.textContent = '+'; addColBtn.title = 'Add column';
         tableDiv.appendChild(addColBtn);
-
         const addRowBtn = document.createElement('button');
         addRowBtn.className = 'add-row-btn'; addRowBtn.textContent = '+'; addRowBtn.title = 'Add row';
         tableDiv.appendChild(addRowBtn);
-
-        header.querySelector('[data-action="delRow"]').addEventListener('click', e => {
+        header.querySelector('[data-action="delRow"]').addEventListener('click', (e) => {
           e.stopPropagation();
           const tbody = table.querySelector('tbody');
           if(tbody.rows.length > 1) tbody.deleteRow(-1);
           else alert('Cannot delete last row');
         });
-        header.querySelector('[data-action="delCol"]').addEventListener('click', e => {
+        header.querySelector('[data-action="delCol"]').addEventListener('click', (e) => {
           e.stopPropagation();
-          const trs = table.querySelectorAll('tr');
-          if(trs[0].cells.length > 1) { trs.forEach(row => row.deleteCell(-1)); }
+          const rows = table.querySelectorAll('tr');
+          if(rows[0].cells.length > 1) { rows.forEach(row => row.deleteCell(-1)); }
           else alert('Cannot delete last column');
         });
-        header.querySelector('[data-action="addRow"]').addEventListener('click', e => {
+        header.querySelector('[data-action="addRow"]').addEventListener('click', (e) => {
           e.stopPropagation();
           const tbody = table.querySelector('tbody');
           const newRow = tbody.insertRow();
           const colCount = tbody.rows[0].cells.length;
-          for(let i = 0; i < colCount; i++) { const cell = newRow.insertCell(); cell.contentEditable = 'true'; }
+          for(let i=0;i<colCount;i++) { const cell = newRow.insertCell(); cell.contentEditable = 'true'; }
         });
-        header.querySelector('[data-action="addCol"]').addEventListener('click', e => {
+        header.querySelector('[data-action="addCol"]').addEventListener('click', (e) => {
           e.stopPropagation();
-          const trs = table.querySelectorAll('tr');
-          trs.forEach(row => { const cell = row.insertCell(); cell.contentEditable = 'true'; });
+          const rows = table.querySelectorAll('tr');
+          rows.forEach(row => { const cell = row.insertCell(); cell.contentEditable = 'true'; });
         });
-        addColBtn.addEventListener('click', e => { e.stopPropagation(); header.querySelector('[data-action="addCol"]').click(); });
-        addRowBtn.addEventListener('click', e => { e.stopPropagation(); header.querySelector('[data-action="addRow"]').click(); });
-
+        addColBtn.addEventListener('click', (e) => { e.stopPropagation(); header.querySelector('[data-action="addCol"]').click(); });
+        addRowBtn.addEventListener('click', (e) => { e.stopPropagation(); header.querySelector('[data-action="addRow"]').click(); });
         const del = document.createElement('button'); del.className = 'del-btn'; del.innerHTML = '&times;'; tableDiv.appendChild(del);
         const resize = document.createElement('div'); resize.className = 'resize-handle'; tableDiv.appendChild(resize);
         wrapper.appendChild(tableDiv);
         makeDraggableResizable(tableDiv, wrapper, '.table-header');
+        // column resizing
+        const ths = table.querySelectorAll('th');
+        ths.forEach((th, idx) => {
+          th.style.position = 'relative';
+          const resizer = document.createElement('div');
+          resizer.style.cssText = 'position:absolute;right:-3px;top:0;width:6px;height:100%;cursor:col-resize;z-index:5;';
+          th.appendChild(resizer);
+          let startX, startW;
+          resizer.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            startX = e.clientX; startW = th.offsetWidth;
+            const onMove = (ev) => {
+              const diff = ev.clientX - startX;
+              const newW = Math.max(40, startW + diff);
+              const rows = table.querySelectorAll('tr');
+              rows.forEach(row => { if(row.cells[idx]) row.cells[idx].style.width = newW + 'px'; });
+            };
+            const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+            e.preventDefault();
+          });
+        });
         return tableDiv;
       }
-      el('btnInsertTable').addEventListener('click', () => {
+      el('btnInsertTable').addEventListener('click', ()=>{
         const rows = parseInt(prompt('Rows (1-6):', '3')) || 3;
         const cols = parseInt(prompt('Columns (2-5):', '3')) || 3;
-        if(rows < 1 || rows > 6 || cols < 2 || cols > 5) return alert('Rows 1-6, Cols 2-5');
+        if(rows<1 || rows>6 || cols<2 || cols>5) return alert('Rows 1-6, Cols 2-5');
         createTable(rows, cols);
       });
 
-      // Snippet Tool
+      // Snippet
       el('snippetSelect').addEventListener('change', function(){
-        const val = this.value;
-        if(!val) return;
-        const snippets = {
-          addressee: 'To,\nThe Director / Principal\n[Institution Name]\n[Address]',
-          subject: 'Subject: ___________________________',
-          through: 'Through Proper Channel\n\n',
-          enclosure: 'Encl:\n1. ___________________\n2. ___________________'
-        };
+        const val=this.value; if(!val) return;
+        const snippets = { addressee: 'To, The Director / Principal\n[Institution Name]\n[Address]', subject: 'Subject: ___________________________', through: 'Through Proper Channel\n\n', enclosure: 'Encl: 1. ___________\n2. ___________\n3. ___________' };
         const text = snippets[val] || '';
-        if(text){
-          const range = quill.getSelection(true);
-          quill.insertText(range.index, text);
-          quill.setSelection(range.index + text.length);
-        }
-        this.value = '';
+        if(text){ const range=quill.getSelection(true); quill.insertText(range.index, text); quill.setSelection(range.index+text.length); }
+        this.value='';
       });
 
-      // Drafts Engine
-      function getDrafts(){
-        try { return JSON.parse(localStorage.getItem('arzi_drafts_v2')) || []; }
-        catch { return []; }
-      }
+      // Drafts
+      function getDrafts(){ try { return JSON.parse(localStorage.getItem('arzi_drafts_v2'))||[]; } catch { return []; } }
       function renderDrafts(){
-        const list = el('draftList');
-        list.innerHTML = '';
-        const drafts = getDrafts();
-        if(drafts.length === 0){
-          list.innerHTML = '<p style="color:#888;">No drafts saved.</p>';
-          return;
-        }
-        drafts.slice().reverse().forEach(d => {
-          const div = document.createElement('div');
-          div.className = 'draft-item';
-          div.innerHTML = `<span><strong>${d.name}</strong> <span class="draft-meta">${new Date(d.timestamp).toLocaleString()}</span></span>
+        const list=el('draftList'); list.innerHTML='';
+        const drafts=getDrafts();
+        if(drafts.length===0){ list.innerHTML='<p style="color:#888;">No drafts saved.</p>'; return; }
+        drafts.slice().reverse().forEach(d=>{
+          const div=document.createElement('div'); div.className='draft-item';
+          div.innerHTML=`<span><strong>${d.name}</strong> <span class="draft-meta">${new Date(d.timestamp).toLocaleString()}</span></span>
             <span><button class="btn" data-load="${d.id}" style="font-size:0.7rem;">Load</button> <button class="btn" data-del="${d.id}" style="font-size:0.7rem;">✕</button></span>`;
-          div.querySelector('[data-load]').addEventListener('click', () => {
-            quill.setContents(d.content);
-            el('draftModal').style.display = 'none';
-          });
-          div.querySelector('[data-del]').addEventListener('click', () => {
-            const updated = getDrafts().filter(x => x.id !== d.id);
-            localStorage.setItem('arzi_drafts_v2', JSON.stringify(updated));
-            renderDrafts();
-          });
+          div.querySelector('[data-load]').addEventListener('click',()=>{ quill.setContents(d.content); el('draftModal').style.display='none'; });
+          div.querySelector('[data-del]').addEventListener('click',()=>{ const updated=getDrafts().filter(x=>x.id!==d.id); localStorage.setItem('arzi_drafts_v2', JSON.stringify(updated)); renderDrafts(); });
           list.appendChild(div);
         });
       }
-      el('btnDrafts').addEventListener('click', () => { renderDrafts(); el('draftModal').style.display = 'flex'; });
-      el('draftModalClose').addEventListener('click', () => el('draftModal').style.display = 'none');
+      el('btnDrafts').addEventListener('click',()=>{ renderDrafts(); el('draftModal').style.display='flex'; });
+      el('draftModalClose').addEventListener('click',()=>{ el('draftModal').style.display='none'; });
 
-      quill.on('text-change', () => {
+      quill.on('text-change', ()=>{
         updateCounters();
-        const drafts = getDrafts();
-        drafts.push({ id: Date.now(), name: 'Auto ' + new Date().toLocaleTimeString(), content: quill.getContents(), timestamp: Date.now() });
-        if(drafts.length > 20) drafts.splice(0, drafts.length - 20);
+        const drafts=getDrafts();
+        drafts.push({ id: Date.now(), name: 'Auto '+new Date().toLocaleString(), content: quill.getContents(), timestamp: Date.now() });
+        if(drafts.length>20) drafts.splice(0, drafts.length-20);
         localStorage.setItem('arzi_drafts_v2', JSON.stringify(drafts));
         try { localStorage.setItem('arzi_editor_draft_v2', JSON.stringify(quill.getContents())); } catch(e){}
       });
 
       function updateCounters(){
-        const text = quill.getText();
-        const chars = text.replace(/\n/g, '').length;
-        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-        el('textStats').textContent = `${words} words • ${chars} characters`;
-        const editorNode = document.querySelector('#editor-body .ql-editor');
-        const printableH = getStandardPagePixelHeight();
-        const pages = Math.max(1, Math.ceil(editorNode.scrollHeight / printableH));
-        el('pageStats').textContent = `Page 1 of ${pages}`;
+        const text=quill.getText(); const chars=text.replace(/\n/g,'').length; const words=text.trim()?text.trim().split(/\s+/).length:0;
+        el('textStats').textContent=`${words} words • ${chars} characters`;
+        const editorNode=document.querySelector('#editor-body .ql-editor');
+        const printableH=getStandardPagePixelHeight();
+        const pages=Math.max(1, Math.ceil(editorNode.scrollHeight/printableH));
+        el('pageStats').textContent=`Page 1 of ${pages}`;
       }
-      function getStandardPagePixelHeight(){
-        const ratio = parseFloat(el('pageSize').selectedOptions[0].dataset.ratio);
-        const width = document.querySelector('.page-container').clientWidth;
-        return Math.round(width / ratio);
-      }
+      function getStandardPagePixelHeight(){ const ratio=parseFloat(el('pageSize').selectedOptions[0].dataset.ratio); const width=document.querySelector('.page-container').clientWidth; return Math.round(width/ratio); }
 
-      // High-Fidelity Capture Engine
+      // Export
       async function captureFullDocumentCanvas(){
-        const wrapper = el('canvasWrapper');
-        const clone = wrapper.cloneNode(true);
-        clone.querySelectorAll('.del-btn, .resize-handle, .add-col-btn, .add-row-btn, .table-header .table-tools').forEach(n => n.remove());
-
-        clone.style.position = 'fixed';
-        clone.style.left = '-9999px';
-        clone.style.top = '0';
-        clone.style.width = wrapper.clientWidth + 'px';
-        clone.style.height = 'auto';
-        clone.style.overflow = 'visible';
-        clone.style.boxShadow = 'none';
-        clone.style.backgroundColor = '#ffffff';
-
-        // Render ruled lines via SVG layer inside clone for html2canvas
-        if (el('toggleRuled').checked) {
+        const wrapper=el('canvasWrapper');
+        const clone=wrapper.cloneNode(true);
+        clone.querySelectorAll('.del-btn, .resize-handle, .add-col-btn, .add-row-btn, .table-header .table-tools, .floating-table .table-header .table-tools, .floating-table .table-header .table-tools button').forEach(n=>n.remove());
+        clone.querySelectorAll('.table-header .table-tools').forEach(n=>n.remove());
+        clone.style.position='fixed'; clone.style.left='-9999px'; clone.style.top='0';
+        clone.style.width=wrapper.clientWidth+'px'; clone.style.height='auto'; clone.style.overflow='visible';
+        clone.style.boxShadow='none'; if (el('toggleRuled').checked) {
           const fs = parseFloat(getEditorEl().style.fontSize) || 16;
           const lh = parseFloat(el('lineHeightInput').value) || 2.0;
           const rowHeight = Math.round(fs * lh);
+          
+          // Draw actual SVG line paths onto an overlay so html2canvas renders them with 100% fidelity
           const linesSvg = document.createElement('div');
-          linesSvg.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:0; background:repeating-linear-gradient(to bottom, transparent 0px, transparent ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px) 0px 32px / 100% ${rowHeight}px;`;
+          linesSvg.className = 'export-lines-overlay';
+          linesSvg.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:0; background:repeating-linear-gradient(to bottom, #ffffff 0px, #ffffff ${rowHeight - 1}px, #d4d9e2 ${rowHeight - 1}px, #d4d9e2 ${rowHeight}px) 0px 32px / 100% ${rowHeight}px;`;
           clone.insertBefore(linesSvg, clone.firstChild);
+        } else {
+          clone.style.backgroundColor = '#ffffff';
         }
-
-        // Render margin line if enabled
-        const marginClone = clone.querySelector('.margin-line-indicator');
-        if (marginClone) {
-          marginClone.style.display = el('toggleMargin').checked ? 'block' : 'none';
-        }
-
+        }        const marginClone = clone.querySelector('.margin-line-indicator');
+        if(marginClone) marginClone.style.display = 'block';
         document.body.appendChild(clone);
         try {
-          const canvas = await html2canvas(clone, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            logging: false,
-            allowTaint: true
-          });
+          const canvas = await html2canvas(clone, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, allowTaint: true });
           return canvas;
-        } finally {
-          document.body.removeChild(clone);
-        }
+        } finally { document.body.removeChild(clone); }
       }
-
       function sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt){
-        const pxPerPt = canvas.width / imgWidthPt;
-        const pagePxHeight = Math.max(1, Math.floor(contentHeightPt * pxPerPt));
-        const pages = [];
-        let y = 0;
-        while(y < canvas.height){
-          const sliceH = Math.min(pagePxHeight, canvas.height - y);
-          const pc = document.createElement('canvas');
-          pc.width = canvas.width;
-          pc.height = sliceH;
-          const ctx = pc.getContext('2d');
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, pc.width, pc.height);
-          ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-          pages.push(pc);
-          y += sliceH;
-        }
+        const pxPerPt=canvas.width/imgWidthPt; const pagePxHeight=Math.max(1,Math.floor(contentHeightPt*pxPerPt));
+        const pages=[]; let y=0;
+        while(y<canvas.height){ const sliceH=Math.min(pagePxHeight, canvas.height-y); const pc=document.createElement('canvas'); pc.width=canvas.width; pc.height=sliceH; const ctx=pc.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,pc.width,pc.height); ctx.drawImage(canvas,0,y,canvas.width,sliceH,0,0,canvas.width,sliceH); pages.push(pc); y+=sliceH; }
         return pages;
       }
-
-      let pendingPdf = null;
+      let pendingPdf=null;
       async function exportAs(type){
-        const btn = el(type === 'image' ? 'export-image' : type === 'pdf' ? 'export-pdf' : 'export-text');
-        btn.disabled = true;
-        btn.textContent = '...';
+        const btn=el(type==='image'?'export-image':type==='pdf'?'export-pdf':'export-text');
+        btn.disabled=true; btn.textContent='...';
         try {
-          if(type === 'text'){
-            const text = quill.getText();
-            const blob = new Blob([text], { type: 'text/plain' });
-            const link = document.createElement('a');
-            link.download = 'document.txt';
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            return;
+          const canvas=await captureFullDocumentCanvas();
+          if(type==='image'){ const link=document.createElement('a'); link.download='handwritten-document.png'; link.href=canvas.toDataURL('image/png'); link.click(); return; }
+          if(type==='text'){ const text=quill.getText(); const blob=new Blob([text],{type:'text/plain'}); const link=document.createElement('a'); link.download='document.txt'; link.href=URL.createObjectURL(blob); link.click(); return; }
+          if(type==='pdf'){
+            const {jsPDF}=window.jspdf; const formatKey=el('pageSize').value; const pdf=new jsPDF({unit:'pt',format:formatKey});
+            const pageWidth=pdf.internal.pageSize.getWidth(); const pageHeight=pdf.internal.pageSize.getHeight(); const margin=36;
+            const imgWidthPt=pageWidth-margin*2; const contentHeightPt=pageHeight-margin*2;
+            const pageCanvases=sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
+            pageCanvases.forEach((pc,i)=>{ if(i>0) pdf.addPage(); const sliceHeightPt=(pc.height/canvas.width)*imgWidthPt; pdf.addImage(pc.toDataURL('image/png'),'PNG',margin,margin,imgWidthPt,sliceHeightPt); });
+            pendingPdf=pdf;
+            const wrap=el('pdfPreviewPages'); wrap.innerHTML='';
+            pageCanvases.forEach((pc,i)=>{ const label=document.createElement('div'); label.className='pdf-page-label'; label.textContent=`Page ${i+1} of ${pageCanvases.length}`; const img=document.createElement('img'); img.src=pc.toDataURL('image/png'); wrap.appendChild(label); wrap.appendChild(img); });
+            el('pdfModal').style.display='flex';
           }
-
-          const canvas = await captureFullDocumentCanvas();
-          if(type === 'image'){
-            const link = document.createElement('a');
-            link.download = 'handwritten-document.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            return;
-          }
-
-          if(type === 'pdf'){
-            const { jsPDF } = window.jspdf;
-            const formatKey = el('pageSize').value;
-            const pdf = new jsPDF({ unit: 'pt', format: formatKey });
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 36;
-            const imgWidthPt = pageWidth - margin * 2;
-            const contentHeightPt = pageHeight - margin * 2;
-            const pageCanvases = sliceCanvasToPages(canvas, imgWidthPt, contentHeightPt);
-
-            pageCanvases.forEach((pc, i) => {
-              if(i > 0) pdf.addPage();
-              const sliceHeightPt = (pc.height / canvas.width) * imgWidthPt;
-              pdf.addImage(pc.toDataURL('image/png'), 'PNG', margin, margin, imgWidthPt, sliceHeightPt);
-            });
-
-            pendingPdf = pdf;
-            const wrap = el('pdfPreviewPages');
-            wrap.innerHTML = '';
-            pageCanvases.forEach((pc, i) => {
-              const label = document.createElement('div');
-              label.className = 'pdf-page-label';
-              label.textContent = `Page ${i + 1} of ${pageCanvases.length}`;
-              const img = document.createElement('img');
-              img.src = pc.toDataURL('image/png');
-              wrap.appendChild(label);
-              wrap.appendChild(img);
-            });
-            el('pdfModal').style.display = 'flex';
-          }
-        } finally {
-          btn.disabled = false;
-          btn.textContent = type === 'image' ? 'Image' : type === 'pdf' ? 'PDF' : 'TXT';
-        }
+        } finally { btn.disabled=false; btn.textContent=type==='image'?'Image':type==='pdf'?'PDF':'TXT'; }
       }
+      el('export-image').addEventListener('click',()=>exportAs('image'));
+      el('export-pdf').addEventListener('click',()=>exportAs('pdf'));
+      el('export-text').addEventListener('click',()=>exportAs('text'));
+      el('pdfModalClose').addEventListener('click',()=>{ el('pdfModal').style.display='none'; });
+      el('pdfModalDownload').addEventListener('click',()=>{ if(pendingPdf) pendingPdf.save('handwritten-document.pdf'); });
 
-      el('export-image').addEventListener('click', () => exportAs('image'));
-      el('export-pdf').addEventListener('click', () => exportAs('pdf'));
-      el('export-text').addEventListener('click', () => exportAs('text'));
-      el('pdfModalClose').addEventListener('click', () => el('pdfModal').style.display = 'none');
-      el('pdfModalDownload').addEventListener('click', () => { if(pendingPdf) pendingPdf.save('handwritten-document.pdf'); });
-
-      // Initialization
-      function loadDraft(){
-        try {
-          const saved = localStorage.getItem('arzi_editor_draft_v2');
-          if(saved) quill.setContents(JSON.parse(saved));
-        } catch(e){}
-      }
+      // Init
+      function loadDraft(){ try { const saved=localStorage.getItem('arzi_editor_draft_v2'); if(saved) quill.setContents(JSON.parse(saved)); } catch(e){} }
       loadDraft();
       updateCounters();
       updateRuledBackground();
-
-      const initH = getStandardPagePixelHeight();
-      document.querySelector('#editor-body .ql-editor').style.minHeight = initH + 'px';
-      el('pageSize').addEventListener('change', () => {
-        const h = getStandardPagePixelHeight();
-        document.querySelector('#editor-body .ql-editor').style.minHeight = h + 'px';
-        updateCounters();
-      });
-      document.addEventListener('keydown', e => {
-        if((e.ctrlKey || e.metaKey) && e.key === 'p'){
-          e.preventDefault();
-          window.print();
-        }
-      });
+      const initH=getStandardPagePixelHeight();
+      document.querySelector('#editor-body .ql-editor').style.minHeight=initH+'px';
+      el('pageSize').addEventListener('change', ()=>{ const h=getStandardPagePixelHeight(); document.querySelector('#editor-body .ql-editor').style.minHeight=h+'px'; updateCounters(); });
+      document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='p'){ e.preventDefault(); window.print(); } });
+      console.log('Arzi Pro: toolbar labels fixed, paper controls labeled, two-row layout.');
     })();
   </script>
 </body>
