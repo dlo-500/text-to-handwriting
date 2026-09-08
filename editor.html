@@ -575,6 +575,38 @@
     #panel-layout .ql-picker {
   display: none !important;
 }
+
+    /* Keep all Home ribbon items on a single, non-wrapping row */
+#toolbar .toolbar-row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 6px !important;
+  overflow-x: auto;
+}
+
+/* Ensure color dropdown only displays on click/hover and has high z-index */
+.ql-snow .ql-picker.ql-color .ql-picker-options,
+.ql-snow .ql-picker.ql-background .ql-picker-options {
+  position: absolute !important;
+  z-index: 1200 !important;
+  background: var(--bg-card) !important;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15) !important;
+}
+
+/* Give buttons clean margins and prevent wrapping */
+.toolbar-group {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+}
+
+.toolbar-group button {
+  min-width: 30px !important;
+  height: 32px !important;
+  padding: 0 6px !important;
+}
   </style>
 </head>
 <body>
