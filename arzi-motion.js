@@ -62,12 +62,12 @@
     return {
       x: Math.random() * w,
       y: Math.random() * h,
-      r: 0.6 + Math.random() * 1.8,
+      r: 1.2 + Math.random() * 2.2,
       speed: 0.12 + Math.random() * 0.28,
       drift: (Math.random() - 0.5) * 0.3,
       phase: Math.random() * Math.PI * 2,
       color: colors[Math.floor(Math.random() * colors.length)],
-      alpha: 0.18 + Math.random() * 0.3
+      alpha: 0.35 + Math.random() * 0.35
     };
   }
 
