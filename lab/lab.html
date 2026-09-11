@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Lab — Office Tools | Arzi</title>
+<meta name="description" content="PDF and image tools for everyday office work — compress, merge, split, sign, redact and organise files, entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lab.css">
+<style>
+  .reg-section{ margin-bottom: 2.4rem; }
+  .reg-tab{
+    display: inline-block; font-family: var(--sans); font-size: .78rem; font-weight: 600;
+    color: var(--brass); background: var(--brass-dim); padding: .3rem .8rem .3rem .7rem;
+    border-radius: 0 var(--radius-s) 0 0; clip-path: polygon(0 0, 100% 0, 92% 100%, 0% 100%);
+  }
+  .reg-list{
+    background: var(--paper-white); border: 1px solid var(--paper-line); border-top: none;
+    border-radius: 0 var(--radius-m) var(--radius-m) var(--radius-m);
+  }
+  .reg-row{
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 1.05rem 1.2rem; text-decoration: none; color: var(--ink); border-bottom: 1px solid var(--paper-dim);
+  }
+  .reg-list a.reg-row:last-child{ border-bottom: none; }
+  .reg-row:hover{ background: var(--paper); }
+  .reg-row .r-name{ font-family: var(--serif); font-size: 1.05rem; font-weight: 600; margin-bottom: .15rem; }
+  .reg-row .r-desc{ font-size: .84rem; color: var(--ink-soft); }
+  .reg-row .r-go{ color: var(--ink-faint); font-size: 1.1rem; flex-shrink: 0; }
+  .reg-row:hover .r-go{ color: var(--seal); }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb">The Lab</span>
+</header>
+
+<main class="lab-main wide">
+  <h1 class="lab-title">The Lab</h1>
+  <p class="lab-sub">A working desk of everyday office tools — for the paperwork that doesn't fit the leave-application format. Compress, organise, sign and convert files without sending them anywhere.</p>
+  <span class="lab-privacy">🔒 Everything runs on your device — no file is ever uploaded</span>
+
+  <div class="reg-section">
+    <span class="reg-tab">PDF tools</span>
+    <div class="reg-list">
+      <a class="reg-row" href="tools/pdf-compress.html">
+        <div><div class="r-name">Compress a PDF</div><div class="r-desc">Shrink a PDF down to a size limit you choose — for portals that cap uploads.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-organize.html">
+        <div><div class="r-name">Organise pages</div><div class="r-desc">Drag pages to reorder, rotate individual pages, or remove them.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-merge.html">
+        <div><div class="r-name">Merge PDFs</div><div class="r-desc">Combine several PDFs — pleadings, annexures, covering letters — into one file.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-split.html">
+        <div><div class="r-name">Split a PDF</div><div class="r-desc">Pull out a page range, or break every page into its own file.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-erase.html">
+        <div><div class="r-name">Smart erase</div><div class="r-desc">Black out names, numbers or blocks of text — the original content is destroyed, not just covered.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-sign.html">
+        <div><div class="r-name">Sign a PDF</div><div class="r-desc">Draw, type or upload a signature, then place and resize it on any page.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-pagenumber.html">
+        <div><div class="r-name">Number pages</div><div class="r-desc">Add running page numbers, or sequential Bates-style file numbers.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/pdf-watermark.html">
+        <div><div class="r-name">Add a watermark</div><div class="r-desc">Stamp DRAFT, CERTIFIED COPY, or your own text across every page.</div></div>
+        <span class="r-go">→</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="reg-section">
+    <span class="reg-tab">Image tools</span>
+    <div class="reg-list">
+      <a class="reg-row" href="tools/image-compress.html">
+        <div><div class="r-name">Compress an image</div><div class="r-desc">Shrink a photo or scan to an exact size limit in KB or MB.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/image-to-pdf.html">
+        <div><div class="r-name">Images to PDF</div><div class="r-desc">Turn one or more photos or scans into a single, properly sized PDF.</div></div>
+        <span class="r-go">→</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="reg-section">
+    <span class="reg-tab">Office utilities</span>
+    <div class="reg-list">
+      <a class="reg-row" href="tools/date-calculator.html">
+        <div><div class="r-name">Date &amp; limitation calculator</div><div class="r-desc">Count the days between two dates, or add a notice period to a date.</div></div>
+        <span class="r-go">→</span>
+      </a>
+      <a class="reg-row" href="tools/amount-to-words.html">
+        <div><div class="r-name">Amount to words</div><div class="r-desc">Convert a figure into words for affidavits and financial documents — Indian numbering.</div></div>
+        <span class="r-go">→</span>
+      </a>
+    </div>
+  </div>
+
+  <p class="lab-note">Files are processed locally in your browser using JavaScript — nothing is sent to a server, ever.</p>
+</main>
+
+</body>
+</html>
