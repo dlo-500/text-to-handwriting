@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compress a PDF | Arzi Lab</title>
+<meta name="description" content="Shrink a PDF to a target size in KB or MB, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Compress a PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Compress a PDF</h1>
+  <p class="lab-sub">Set the size limit your portal asks for. This renders each page as an image and searches for the highest quality that still fits — good for scans and forms; text stays crisp up to a point, then trades sharpness for size.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.4rem;">
+      <div class="field" id="pageCountLine" style="color:var(--ink-soft); font-size:.85rem;"></div>
+      <div class="row">
+        <div class="field">
+          <label for="targetSize">Target size</label>
+          <input type="number" id="targetSize" value="1" min="0.05" step="0.05">
+        </div>
+        <div class="field">
+          <label for="targetUnit">Unit</label>
+          <select id="targetUnit">
+            <option value="MB" selected>MB</option>
+            <option value="KB">KB</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn seal" id="runBtn">Compress</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">This flattens pages into images to guarantee the size limit, the way most online compressors work — a document you need to keep text-searchable is better shrunk by reducing embedded photo quality in the original app instead.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const optionsBox = document.getElementById('options');
+  let currentFile = null;
+  let originalBytes = null;
+  let pageCount = 0;
+  let pageSizesPts = []; // [{w,h}] in PDF points, original
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    originalBytes = await file.arrayBuffer();
+    try {
+      const { PDFDocument } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes.slice(0), { ignoreEncryption: true });
+      pageCount = doc.getPageCount();
+      pageSizesPts = doc.getPages().map(p => { const s = p.getSize(); return { w: s.width, h: s.height }; });
+      document.getElementById('pageCountLine').textContent = `${pageCount} page${pageCount === 1 ? '' : 's'} · currently ${formatBytes(file.size)}`;
+      optionsBox.style.display = '';
+      document.getElementById('resultBox').classList.remove('show');
+    } catch (e){
+      toast('Could not read this PDF', 'error');
+    }
+  }
+
+  function toBlob(canvas, quality){
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+  }
+
+  async function renderPagesAtScale(pdf, scale){
+    const canvases = [];
+    for (let i = 1; i <= pdf.numPages; i++){
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      canvases.push(canvas);
+      setProgress(document.getElementById('progress'), Math.round((i / pdf.numPages) * 40));
+    }
+    return canvases;
+  }
+
+  async function sizeAtQuality(canvases, quality){
+    let total = 0;
+    const blobs = [];
+    for (const c of canvases){
+      const b = await toBlob(c, quality);
+      blobs.push(b);
+      total += b.size;
+    }
+    return { total, blobs };
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const val = parseFloat(document.getElementById('targetSize').value);
+    if (!val || val <= 0){ toast('Enter a target size', 'error'); return; }
+    const unit = document.getElementById('targetUnit').value;
+    const targetBytes = unit === 'MB' ? val * 1024 * 1024 : val * 1024;
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Rendering pages…';
+
+    try {
+      const pdf = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+      let scale = 1.6;
+      let bestBlobs = null;
+      let bestTotal = Infinity;
+
+      for (let attempt = 0; attempt < 4; attempt++){
+        document.getElementById('statusLine').textContent = `Rendering pages at ${Math.round(scale * 72)} dpi…`;
+        const canvases = await renderPagesAtScale(pdf, scale);
+
+        document.getElementById('statusLine').textContent = 'Searching for the best quality…';
+        let lo = 0.04, hi = 0.92, found = null;
+        for (let i = 0; i < 7; i++){
+          const q = (lo + hi) / 2;
+          const { total, blobs } = await sizeAtQuality(canvases, q);
+          setProgress(document.getElementById('progress'), 40 + Math.round(((i + 1) / 7) * 50));
+          if (total <= targetBytes){ found = { blobs, total }; lo = q; }
+          else hi = q;
+        }
+
+        if (found){
+          bestBlobs = found.blobs; bestTotal = found.total;
+          break;
+        }
+        // even the lowest quality is too big — try again at a smaller scale
+        const lowest = await sizeAtQuality(canvases, 0.04);
+        if (lowest.total < bestTotal){ bestBlobs = lowest.blobs; bestTotal = lowest.total; }
+        scale *= 0.72;
+      }
+
+      document.getElementById('statusLine').textContent = 'Rebuilding PDF…';
+      const { PDFDocument } = PDFLib;
+      const outDoc = await PDFDocument.create();
+      for (let i = 0; i < bestBlobs.length; i++){
+        const bytes = new Uint8Array(await bestBlobs[i].arrayBuffer());
+        const jpg = await outDoc.embedJpg(bytes);
+        const { w, h } = pageSizesPts[i] || { w: jpg.width, h: jpg.height };
+        const page = outDoc.addPage([w, h]);
+        page.drawImage(jpg, { x: 0, y: 0, width: w, height: h });
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      const pct = Math.round((1 - resultBlob.size / currentFile.size) * 100);
+      document.getElementById('resultTitle').textContent =
+        resultBlob.size <= targetBytes ? 'Compressed to your target size' : `Closest achievable — ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultMeta').textContent =
+        `${formatBytes(currentFile.size)} → ${formatBytes(resultBlob.size)} (${pct > 0 ? pct + '% smaller' : 'no further reduction possible'})`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not compress this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-compressed.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

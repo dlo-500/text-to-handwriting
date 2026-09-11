@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Images to PDF | Arzi Lab</title>
+<meta name="description" content="Turn one or more photos or scans into a single, properly sized PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Images to PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Images to PDF</h1>
+  <p class="lab-sub">Add photos or scans, drag them into order, and export one PDF — one image per page.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="dz-title">Drop photos here, or tap to choose</div>
+      <div class="dz-sub">Add as many as you need — you can reorder them after</div>
+    </div>
+
+    <div class="page-grid" id="grid"></div>
+
+    <div id="options" style="display:none; margin-top:1.4rem;">
+      <div class="row">
+        <div class="field">
+          <label for="pageSize">Page size</label>
+          <select id="pageSize">
+            <option value="fit" selected>Fit to each image</option>
+            <option value="a4">A4</option>
+            <option value="letter">US Letter</option>
+          </select>
+          <div class="hint">A4/Letter centre each image with a margin; orientation follows the image.</div>
+        </div>
+      </div>
+      <button class="btn seal" id="runBtn">Create PDF</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const grid = document.getElementById('grid');
+  const optionsBox = document.getElementById('options');
+  let items = []; // { id, file, url }
+  let resultBlob = null;
+  let dragSrc = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => addFiles(files) });
+
+  function addFiles(fileList){
+    let added = false;
+    Array.from(fileList).forEach(f => {
+      if (!f.type.startsWith('image/')) return;
+      items.push({ id: Math.random().toString(36).slice(2), file: f, url: URL.createObjectURL(f) });
+      added = true;
+    });
+    if (!added){ toast('Please choose image files', 'error'); return; }
+    optionsBox.style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+    renderGrid();
+  }
+
+  function renderGrid(){
+    grid.innerHTML = '';
+    items.forEach((it, idx) => {
+      const tile = el('div', 'page-tile');
+      tile.draggable = true;
+      tile.dataset.id = it.id;
+
+      const img = document.createElement('img');
+      img.src = it.url;
+      tile.appendChild(img);
+
+      const num = el('div', 'p-num', `${idx + 1}`);
+      tile.appendChild(num);
+
+      const actions = el('div', 'p-actions');
+      const rm = el('button', 'p-btn', '×');
+      rm.title = 'Remove';
+      rm.addEventListener('click', (e) => {
+        e.stopPropagation();
+        items = items.filter(x => x.id !== it.id);
+        renderGrid();
+        if (items.length === 0) optionsBox.style.display = 'none';
+      });
+      actions.appendChild(rm);
+      tile.appendChild(actions);
+
+      tile.addEventListener('dragstart', () => { dragSrc = it.id; tile.classList.add('dragging'); });
+      tile.addEventListener('dragend', () => tile.classList.remove('dragging'));
+      tile.addEventListener('dragover', (e) => { e.preventDefault(); tile.classList.add('drag-over'); });
+      tile.addEventListener('dragleave', () => tile.classList.remove('drag-over'));
+      tile.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tile.classList.remove('drag-over');
+        if (!dragSrc || dragSrc === it.id) return;
+        const fromIdx = items.findIndex(x => x.id === dragSrc);
+        const toIdx = items.findIndex(x => x.id === it.id);
+        const [moved] = items.splice(fromIdx, 1);
+        items.splice(toIdx, 0, moved);
+        renderGrid();
+      });
+
+      grid.appendChild(tile);
+    });
+  }
+
+  function loadImageEl(url){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  function toJpegBytes(img){
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const b64 = dataUrl.split(',')[1];
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  const PT_PER_PX = 72 / 96; // treat source pixels as 96dpi screen pixels
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (items.length === 0){ toast('Add at least one image', 'error'); return; }
+    const mode = document.getElementById('pageSize').value;
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Building PDF…';
+
+    try {
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+
+      const A4 = [595.28, 841.89];
+      const LETTER = [612, 792];
+      const MARGIN = 28;
+
+      for (let i = 0; i < items.length; i++){
+        setProgress(document.getElementById('progress'), Math.round((i / items.length) * 90));
+        const imgEl = await loadImageEl(items[i].url);
+        const jpgBytes = toJpegBytes(imgEl);
+        const jpg = await pdfDoc.embedJpg(jpgBytes);
+        const iw = imgEl.naturalWidth, ih = imgEl.naturalHeight;
+
+        if (mode === 'fit'){
+          let pw = iw * PT_PER_PX, ph = ih * PT_PER_PX;
+          // keep pages within a sane print range
+          const longest = Math.max(pw, ph);
+          if (longest > 1400){ const s = 1400 / longest; pw *= s; ph *= s; }
+          const page = pdfDoc.addPage([pw, ph]);
+          page.drawImage(jpg, { x: 0, y: 0, width: pw, height: ph });
+        } else {
+          const base = mode === 'a4' ? A4 : LETTER;
+          const landscape = iw > ih;
+          const [pw, ph] = landscape ? [base[1], base[0]] : base;
+          const page = pdfDoc.addPage([pw, ph]);
+          const availW = pw - MARGIN * 2, availH = ph - MARGIN * 2;
+          const scale = Math.min(availW / iw, availH / ih);
+          const drawW = iw * scale, drawH = ih * scale;
+          page.drawImage(jpg, {
+            x: (pw - drawW) / 2,
+            y: (ph - drawH) / 2,
+            width: drawW,
+            height: drawH
+          });
+        }
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const bytes = await pdfDoc.save();
+      resultBlob = new Blob([bytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'PDF ready';
+      document.getElementById('resultMeta').textContent = `${items.length} page${items.length === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not build the PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob) downloadBlob(resultBlob, 'images.pdf');
+  });
+</script>
+</body>
+</html>

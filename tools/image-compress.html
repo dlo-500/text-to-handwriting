@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compress an Image | Arzi Lab</title>
+<meta name="description" content="Shrink a photo or scan to an exact target size in KB or MB, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .preview-row{ display:flex; gap:1rem; margin-top:1rem; flex-wrap:wrap; }
+  .preview-box{ flex:1; min-width:140px; }
+  .preview-box img{ width:100%; border:1px solid var(--paper-line); border-radius:var(--radius-s); display:block; }
+  .preview-box .cap{ font-size:.78rem; color:var(--ink-soft); margin-top:.4rem; text-align:center; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Compress an image</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Compress an image</h1>
+  <p class="lab-sub">Set the exact size limit your form or portal asks for, and this shrinks the photo or scan to fit — trying quality first, then dimensions if it still won't fit.</p>
+  <span class="lab-privacy">🔒 Runs on your device — the image is never uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="dz-title">Drop a photo here, or tap to choose</div>
+      <div class="dz-sub">JPEG, PNG or WebP</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.4rem;">
+      <div class="row">
+        <div class="field">
+          <label for="targetSize">Target size</label>
+          <input type="number" id="targetSize" value="200" min="1">
+        </div>
+        <div class="field">
+          <label for="targetUnit">Unit</label>
+          <select id="targetUnit">
+            <option value="KB" selected>KB</option>
+            <option value="MB">MB</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Output format</label>
+        <div class="radio-group" id="fmtGroup">
+          <label class="radio-pill active"><input type="radio" name="fmt" value="jpeg" checked>JPEG (smallest)</label>
+          <label class="radio-pill"><input type="radio" name="fmt" value="png">PNG (keeps transparency)</label>
+        </div>
+      </div>
+      <button class="btn seal" id="runBtn">Compress</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+
+      <div class="preview-row" id="previewRow" style="display:none;">
+        <div class="preview-box">
+          <img id="origPreview">
+          <div class="cap" id="origCap"></div>
+        </div>
+        <div class="preview-box">
+          <img id="newPreview">
+          <div class="cap" id="newCap"></div>
+        </div>
+      </div>
+
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">JPEG compression removes transparency and some fine detail — for a lossless scan you can still read text on, keep a generous target size.</p>
+</main>
+
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const fileChipHolder = document.getElementById('fileChipHolder');
+  const optionsBox = document.getElementById('options');
+  let currentFile = null;
+  let currentImg = null;
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  function loadFile(file){
+    if (!file.type.startsWith('image/')){ toast('Please choose an image file', 'error'); return; }
+    currentFile = file;
+    fileChipHolder.innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    const rm = el('button', 'remove', '×');
+    rm.addEventListener('click', () => { currentFile = null; chip.remove(); optionsBox.style.display = 'none'; });
+    chip.appendChild(rm);
+    fileChipHolder.appendChild(chip);
+
+    const img = new Image();
+    img.onload = () => {
+      currentImg = img;
+      document.getElementById('origPreview').src = img.src;
+      document.getElementById('origCap').textContent = `${img.naturalWidth}×${img.naturalHeight} · ${formatBytes(file.size)}`;
+      optionsBox.style.display = '';
+      document.getElementById('resultBox').classList.remove('show');
+      document.getElementById('previewRow').style.display = 'none';
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  document.querySelectorAll('#fmtGroup .radio-pill input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      document.querySelectorAll('#fmtGroup .radio-pill').forEach(p => p.classList.toggle('active', p.querySelector('input').checked));
+    });
+  });
+
+  function canvasFrom(img, w, h){
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    if (document.querySelector('input[name=fmt]:checked').value === 'jpeg'){
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.drawImage(img, 0, 0, w, h);
+    return c;
+  }
+
+  function toBlob(canvas, mime, quality){
+    return new Promise(resolve => canvas.toBlob(resolve, mime, quality));
+  }
+
+  async function compressToTarget(img, targetBytes, mime){
+    let width = img.naturalWidth, height = img.naturalHeight;
+    let bestBlob = null;
+
+    for (let attempt = 0; attempt < 8; attempt++){
+      const canvas = canvasFrom(img, width, height);
+
+      if (mime === 'image/png'){
+        const blob = await toBlob(canvas, mime);
+        if (blob.size <= targetBytes || width < 40 || height < 40){
+          return blob;
+        }
+        width = Math.round(width * 0.82);
+        height = Math.round(height * 0.82);
+        continue;
+      }
+
+      // JPEG: binary search quality first
+      let lo = 0.03, hi = 0.95, best = null;
+      for (let i = 0; i < 7; i++){
+        const q = (lo + hi) / 2;
+        const blob = await toBlob(canvas, mime, q);
+        if (blob.size <= targetBytes){
+          best = blob;
+          lo = q;
+        } else {
+          hi = q;
+        }
+      }
+      if (best){ return best; }
+
+      // even lowest quality too big -> shrink dimensions and retry
+      const lowest = await toBlob(canvas, mime, 0.03);
+      bestBlob = lowest;
+      if (width < 60 || height < 60) return lowest;
+      width = Math.round(width * 0.82);
+      height = Math.round(height * 0.82);
+    }
+    return bestBlob;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!currentImg){ toast('Choose an image first', 'error'); return; }
+    const val = parseFloat(document.getElementById('targetSize').value);
+    if (!val || val <= 0){ toast('Enter a target size', 'error'); return; }
+    const unit = document.getElementById('targetUnit').value;
+    const targetBytes = unit === 'MB' ? val * 1024 * 1024 : val * 1024;
+    const fmt = document.querySelector('input[name=fmt]:checked').value;
+    const mime = fmt === 'png' ? 'image/png' : 'image/jpeg';
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Compressing…';
+    setProgress(document.getElementById('progress'), 30);
+
+    try {
+      const blob = await compressToTarget(currentImg, targetBytes, mime);
+      setProgress(document.getElementById('progress'), 100);
+      resultBlob = blob;
+
+      document.getElementById('newPreview').src = URL.createObjectURL(blob);
+      const testImg = new Image();
+      testImg.onload = () => {
+        document.getElementById('newCap').textContent = `${testImg.naturalWidth}×${testImg.naturalHeight} · ${formatBytes(blob.size)}`;
+      };
+      testImg.src = URL.createObjectURL(blob);
+      document.getElementById('previewRow').style.display = '';
+
+      const pct = Math.round((1 - blob.size / currentFile.size) * 100);
+      document.getElementById('resultTitle').textContent =
+        blob.size <= targetBytes ? 'Compressed to your target size' : `Closest achievable — ${formatBytes(blob.size)}`;
+      document.getElementById('resultMeta').textContent =
+        `${formatBytes(currentFile.size)} → ${formatBytes(blob.size)} (${pct > 0 ? pct + '% smaller' : 'no reduction possible'})`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      toast('Compression failed — try a different image', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (!resultBlob) return;
+    const ext = resultBlob.type === 'image/png' ? 'png' : 'jpg';
+    const base = (currentFile.name || 'image').replace(/\.[^.]+$/, '');
+    downloadBlob(resultBlob, `${base}-compressed.${ext}`);
+  });
+</script>
+</body>
+</html>
