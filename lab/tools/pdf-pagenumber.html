@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number PDF Pages | Arzi Lab</title>
+<meta name="description" content="Add running page numbers or Bates-style sequential file numbers to a PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Number pages</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Number pages</h1>
+  <p class="lab-sub">Add a running page number, or a sequential Bates-style file number, to every page of a PDF.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.4rem;">
+      <div class="field" id="pageCountLine" style="color:var(--ink-soft); font-size:.85rem;"></div>
+
+      <div class="radio-group" id="modeGroup" style="margin-bottom:1.2rem;">
+        <label class="radio-pill active"><input type="radio" name="mode" value="page" checked>Page numbers</label>
+        <label class="radio-pill"><input type="radio" name="mode" value="bates">Bates / file numbers</label>
+      </div>
+
+      <div id="pagePanel">
+        <div class="row">
+          <div class="field">
+            <label for="pageFormat">Format</label>
+            <select id="pageFormat">
+              <option value="n">1, 2, 3…</option>
+              <option value="pn">Page 1, Page 2…</option>
+              <option value="pnof" selected>Page 1 of N</option>
+              <option value="nofslash">1 / N</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pageStart">Start at</label>
+            <input type="number" id="pageStart" value="1" min="0">
+          </div>
+        </div>
+      </div>
+
+      <div id="batesPanel" style="display:none;">
+        <div class="row">
+          <div class="field">
+            <label for="batesPrefix">Prefix</label>
+            <input type="text" id="batesPrefix" placeholder="e.g. DLO/2026/" value="">
+          </div>
+          <div class="field">
+            <label for="batesDigits">Number of digits</label>
+            <input type="number" id="batesDigits" value="6" min="1" max="12">
+          </div>
+          <div class="field">
+            <label for="batesStart">Start at</label>
+            <input type="number" id="batesStart" value="1" min="0">
+          </div>
+        </div>
+        <div class="field">
+          <label class="hint" style="margin:0;">Preview: <span id="batesPreview"></span></label>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="position">Position</label>
+          <select id="position">
+            <option value="bc" selected>Bottom centre</option>
+            <option value="br">Bottom right</option>
+            <option value="bl">Bottom left</option>
+            <option value="tc">Top centre</option>
+            <option value="tr">Top right</option>
+            <option value="tl">Top left</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fontSize">Font size</label>
+          <input type="number" id="fontSize" value="10" min="6" max="24">
+        </div>
+      </div>
+
+      <button class="btn seal" id="runBtn">Add numbers &amp; download</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const optionsBox = document.getElementById('options');
+  let currentFile = null;
+  let originalBytes = null;
+  let pageCount = 0;
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    originalBytes = await file.arrayBuffer();
+    try {
+      const { PDFDocument } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      pageCount = doc.getPageCount();
+      document.getElementById('pageCountLine').textContent = `${pageCount} page${pageCount === 1 ? '' : 's'} in this file`;
+      optionsBox.style.display = '';
+      document.getElementById('resultBox').classList.remove('show');
+      updateBatesPreview();
+    } catch (e){
+      toast('Could not read this PDF', 'error');
+    }
+  }
+
+  document.querySelectorAll('#modeGroup input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      document.querySelectorAll('#modeGroup .radio-pill').forEach(p => p.classList.toggle('active', p.querySelector('input').checked));
+      const mode = document.querySelector('input[name=mode]:checked').value;
+      document.getElementById('pagePanel').style.display = mode === 'page' ? '' : 'none';
+      document.getElementById('batesPanel').style.display = mode === 'bates' ? '' : 'none';
+    });
+  });
+
+  function updateBatesPreview(){
+    const prefix = document.getElementById('batesPrefix').value;
+    const digits = parseInt(document.getElementById('batesDigits').value, 10) || 1;
+    const start = parseInt(document.getElementById('batesStart').value, 10) || 0;
+    document.getElementById('batesPreview').textContent = prefix + String(start).padStart(digits, '0');
+  }
+  ['batesPrefix','batesDigits','batesStart'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateBatesPreview));
+
+  function labelFor(mode, i0){
+    if (mode === 'bates'){
+      const prefix = document.getElementById('batesPrefix').value;
+      const digits = parseInt(document.getElementById('batesDigits').value, 10) || 1;
+      const start = parseInt(document.getElementById('batesStart').value, 10) || 0;
+      return prefix + String(start + i0).padStart(digits, '0');
+    }
+    const fmt = document.getElementById('pageFormat').value;
+    const start = parseInt(document.getElementById('pageStart').value, 10) || 0;
+    const n = start + i0;
+    const total = start + pageCount - 1;
+    if (fmt === 'n') return String(n);
+    if (fmt === 'pn') return 'Page ' + n;
+    if (fmt === 'pnof') return `Page ${n} of ${total}`;
+    if (fmt === 'nofslash') return `${n} / ${total}`;
+    return String(n);
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Stamping pages…';
+
+    try {
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      const font = await doc.embedFont(StandardFonts.Helvetica);
+      const size = parseFloat(document.getElementById('fontSize').value) || 10;
+      const position = document.getElementById('position').value;
+      const mode = document.querySelector('input[name=mode]:checked').value;
+      const margin = 24;
+
+      const pages = doc.getPages();
+      pages.forEach((page, i0) => {
+        const { width, height } = page.getSize();
+        const label = labelFor(mode, i0);
+        const textWidth = font.widthOfTextAtSize(label, size);
+
+        let x, y;
+        if (position.includes('c')) x = (width - textWidth) / 2;
+        else if (position.includes('r')) x = width - margin - textWidth;
+        else x = margin;
+
+        if (position.startsWith('t')) y = height - margin;
+        else y = margin;
+
+        page.drawText(label, { x, y, size, font, color: rgb(0.12, 0.1, 0.08) });
+      });
+
+      setProgress(document.getElementById('progress'), 100);
+      const bytes = await doc.save();
+      resultBlob = new Blob([bytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Numbered';
+      document.getElementById('resultMeta').textContent = `${pageCount} pages · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not number this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-numbered.pdf`);
+    }
+  });
+</script>
+</body>
+</html>
