@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR | Arzi Lab</title>
+<meta name="description" content="Make a scanned PDF searchable, or pull the text out of a photo — English, Urdu and Hindi, fully in the browser via Tesseract.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .lang-row{ display:flex; gap:.6rem; flex-wrap:wrap; }
+  .lang-chip{
+    border:1px solid var(--paper-line); border-radius:999px; padding:.4rem .9rem; font-size:.85rem;
+    cursor:pointer; background:var(--paper-white); user-select:none;
+  }
+  .lang-chip input{ display:none; }
+  .lang-chip.active{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); font-weight:600; }
+  #extractedText{
+    width:100%; min-height:220px; font-family:'JetBrains Mono', monospace; font-size:.85rem;
+    border:1px solid var(--paper-line); border-radius:var(--radius-s); padding:.9rem; margin-top:1rem;
+  }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / OCR</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">OCR — English, Urdu, Hindi</h1>
+  <p class="lab-sub">Drop a scanned PDF to add an invisible, searchable text layer over it — or drop a single photo to pull the text out directly.</p>
+  <span class="lab-privacy">🔒 Files are processed on your device. The first time you use a language, its recognition data (a few MB) downloads from a public CDN — after that it's cached.</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf,image/*">
+      <div class="dz-title">Drop a PDF or photo here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field">
+        <label>Language(s) in the document</label>
+        <div class="lang-row" id="langRow">
+          <label class="lang-chip active"><input type="checkbox" value="eng" checked> English</label>
+          <label class="lang-chip"><input type="checkbox" value="urd"> Urdu</label>
+          <label class="lang-chip"><input type="checkbox" value="hin"> Hindi</label>
+        </div>
+      </div>
+
+      <button class="btn seal" id="runBtn" style="margin-top:.8rem;">Run OCR</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+
+      <div id="pdfResult" class="result">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download searchable PDF</button></div>
+      </div>
+
+      <div id="imageResult" style="display:none;">
+        <textarea id="extractedText" readonly placeholder="Recognised text will appear here…"></textarea>
+        <div class="btn-row">
+          <button class="btn secondary" id="copyText">Copy text</button>
+          <button class="btn" id="downloadText">Download .txt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">Accuracy depends on scan quality — straighten and crop a photo first (see the Auto-crop &amp; deskew tool) for better results. Mixing scripts on one page can slow recognition down.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, isPdf = false, originalBytes = null;
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    const looksPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const looksImg = file.type.startsWith('image/');
+    if (!looksPdf && !looksImg){ toast('Please choose a PDF or an image', 'error'); return; }
+    currentFile = file; isPdf = looksPdf;
+
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    originalBytes = await file.arrayBuffer();
+    document.getElementById('options').style.display = '';
+    document.getElementById('pdfResult').classList.remove('show');
+    document.getElementById('imageResult').style.display = 'none';
+    document.getElementById('statusLine').textContent = '';
+  }
+
+  document.querySelectorAll('#langRow input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      inp.closest('.lang-chip').classList.toggle('active', inp.checked);
+    });
+  });
+
+  function selectedLangs(){
+    return Array.from(document.querySelectorAll('#langRow input:checked')).map(i => i.value);
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a file first', 'error'); return; }
+    const langs = selectedLangs();
+    if (langs.length === 0){ toast('Choose at least one language', 'error'); return; }
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    setProgress(document.getElementById('progress'), 0);
+    document.getElementById('statusLine').textContent = 'Loading recognition engine…';
+
+    try {
+      const worker = await Tesseract.createWorker(langs.join('+'), 1, {
+        logger: (m) => {
+          if (m.status && typeof m.progress === 'number'){
+            document.getElementById('statusLine').textContent = `${m.status}…`;
+            setProgress(document.getElementById('progress'), Math.round(m.progress * 100));
+          }
+        }
+      });
+
+      if (isPdf){
+        await runPdfOcr(worker);
+      } else {
+        await runImageOcr(worker);
+      }
+
+      await worker.terminate();
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('OCR failed — try again, or check your internet connection for the first run', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  async function runImageOcr(worker){
+    const { data } = await worker.recognize(currentFile);
+    document.getElementById('extractedText').value = data.text.trim();
+    document.getElementById('imageResult').style.display = '';
+    document.getElementById('pdfResult').classList.remove('show');
+    setProgress(document.getElementById('progress'), 100);
+    toast('Text extracted');
+  }
+
+  /* Fetch a Google Font subset that actually covers a given codepoint, by reading
+     the @font-face blocks (each with its own unicode-range) out of the CSS2 API
+     response rather than assuming the first url() found is the right script. */
+  async function fetchGoogleFontForCodepoint(family, codepoint){
+    const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}&display=swap`;
+    const css = await fetch(cssUrl).then(r => r.text());
+    const blocks = css.split('@font-face').slice(1);
+    function inRange(rangeStr){
+      return rangeStr.split(',').some(part => {
+        const m = part.trim().match(/U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?/);
+        if (!m) return false;
+        const start = parseInt(m[1], 16), end = m[2] ? parseInt(m[2], 16) : start;
+        return codepoint >= start && codepoint <= end;
+      });
+    }
+    let fallbackUrl = null;
+    for (const block of blocks){
+      const urlMatch = block.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)\s*format\('woff2'\)/);
+      if (!urlMatch) continue;
+      if (!fallbackUrl) fallbackUrl = urlMatch[1];
+      const rangeMatch = block.match(/unicode-range:\s*([^;]+);/);
+      if (rangeMatch && inRange(rangeMatch[1])) return await fetch(urlMatch[1]).then(r => r.arrayBuffer());
+    }
+    if (fallbackUrl) return await fetch(fallbackUrl).then(r => r.arrayBuffer());
+    throw new Error('No font subset found for ' + family);
+  }
+
+  function scriptFontFor(text, fonts){
+    for (const ch of text){
+      const cp = ch.codePointAt(0);
+      if (cp >= 0x0600 && cp <= 0x06FF) return fonts.arabic || fonts.latin;
+      if (cp >= 0x0900 && cp <= 0x097F) return fonts.devanagari || fonts.latin;
+    }
+    return fonts.latin;
+  }
+
+  async function runPdfOcr(worker){
+    const langs = selectedLangs();
+    const pdfDocJs = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    const numPages = pdfDocJs.numPages;
+    const { PDFDocument, StandardFonts } = PDFLib;
+    const outDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+    outDoc.registerFontkit(fontkit);
+    const fonts = { latin: await outDoc.embedFont(StandardFonts.Helvetica) };
+
+    if (langs.includes('urd')){
+      try {
+        document.getElementById('statusLine').textContent = 'Fetching Urdu text support…';
+        const bytes = await fetchGoogleFontForCodepoint('Noto Sans Arabic', 0x0627);
+        fonts.arabic = await outDoc.embedFont(bytes, { subset: true });
+      } catch (e){ console.error(e); toast('Could not load Urdu text support — those words will be skipped', 'error'); }
+    }
+    if (langs.includes('hin')){
+      try {
+        document.getElementById('statusLine').textContent = 'Fetching Hindi text support…';
+        const bytes = await fetchGoogleFontForCodepoint('Noto Sans Devanagari', 0x0905);
+        fonts.devanagari = await outDoc.embedFont(bytes, { subset: true });
+      } catch (e){ console.error(e); toast('Could not load Hindi text support — those words will be skipped', 'error'); }
+    }
+
+    const outPages = outDoc.getPages();
+
+    for (let i = 0; i < numPages; i++){
+      document.getElementById('statusLine').textContent = `Reading page ${i + 1} of ${numPages}…`;
+      const page = await pdfDocJs.getPage(i + 1);
+      const ocrScale = Math.min(3, 1700 / page.getViewport({ scale: 1 }).width);
+      const viewport = page.getViewport({ scale: ocrScale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+      const { data } = await worker.recognize(canvas);
+      const outPage = outPages[i];
+      const { height: pageHeightPts } = outPage.getSize();
+
+      (data.words || []).forEach(word => {
+        if (!word.text || !word.text.trim()) return;
+        const bh = (word.bbox.y1 - word.bbox.y0) / ocrScale;
+        const fontSize = Math.max(4, bh * 0.85);
+        const x = word.bbox.x0 / ocrScale;
+        const y = pageHeightPts - (word.bbox.y1 / ocrScale);
+        const useFont = scriptFontFor(word.text, fonts);
+        try {
+          outPage.drawText(word.text, { x, y, size: fontSize, font: useFont, opacity: 0 });
+        } catch (err){ /* skip glyphs this font still can't encode */ }
+      });
+
+      setProgress(document.getElementById('progress'), Math.round(((i + 1) / numPages) * 100));
+    }
+
+    const outBytes = await outDoc.save();
+    resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+    document.getElementById('resultTitle').textContent = 'Searchable PDF ready';
+    document.getElementById('resultMeta').textContent = `${numPages} pages · ${formatBytes(resultBlob.size)}`;
+    document.getElementById('pdfResult').classList.add('show');
+    document.getElementById('imageResult').style.display = 'none';
+  }
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-searchable.pdf`);
+    }
+  });
+  document.getElementById('copyText').addEventListener('click', () => {
+    const text = document.getElementById('extractedText').value;
+    navigator.clipboard.writeText(text).then(() => toast('Copied'));
+  });
+  document.getElementById('downloadText').addEventListener('click', () => {
+    const text = document.getElementById('extractedText').value;
+    const base = (currentFile.name || 'document').replace(/\.[^.]+$/, '');
+    downloadBlob(new Blob([text], { type: 'text/plain' }), `${base}.txt`);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crop PDF | Arzi Lab</title>
+<meta name="description" content="Trim the margins of a PDF, or select an area to keep, right in your browser — the underlying text and graphics stay intact.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .page-nav{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+  .page-nav .pn-strip{ display:flex; gap:.35rem; overflow-x:auto; padding:.15rem; flex:1; min-width:120px; }
+  .pn-chip{
+    flex:none; width:30px; height:30px; border-radius:var(--radius-s); border:1px solid var(--paper-line);
+    background:var(--paper-white); font-size:.76rem; cursor:pointer; color:var(--ink-soft);
+  }
+  .pn-chip.current{ border-color:var(--seal); color:var(--seal); font-weight:700; }
+  .stage-outer{ margin-top:1rem; max-width:100%; overflow:auto; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:#e9e4d4; padding:10px; }
+  .stage-inner{ position:relative; display:inline-block; }
+  .stage-inner canvas{ display:block; max-width:100%; height:auto; }
+  .cropLayer{ position:absolute; inset:0; }
+  .crop-box{ position:absolute; border:1.5px dashed var(--seal); background:rgba(156,59,46,.08); touch-action:none; cursor:move; }
+  .crop-box .resize-handle{
+    position:absolute; right:-7px; bottom:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--seal); border:2px solid #fff; cursor:nwse-resize; touch-action:none;
+  }
+  .hint{ font-size:.8rem; color:var(--ink-soft); margin-top:.5rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Crop PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Crop PDF</h1>
+  <p class="lab-sub">Drag a box around what you want to keep. This changes the page's visible area only — the text and graphics underneath aren't touched, so nothing is rasterised.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+    <div class="status-line" id="loadStatus"></div>
+
+    <div id="options" style="display:none;">
+      <div class="page-nav">
+        <button class="btn secondary" id="prevBtn">←</button>
+        <div class="pn-strip" id="pnStrip"></div>
+        <button class="btn secondary" id="nextBtn">→</button>
+      </div>
+
+      <div class="stage-outer">
+        <div class="stage-inner" id="stageInner">
+          <canvas id="baseCanvas"></canvas>
+          <div class="cropLayer" id="cropLayer"></div>
+        </div>
+      </div>
+      <p class="hint">Drag the box to move it, the corner handle to resize it.</p>
+
+      <div class="field" style="margin-top:1rem;">
+        <label>Apply to</label>
+        <div class="radio-group">
+          <label class="radio-pill active"><input type="radio" name="scope" value="all" checked>Every page, same crop</label>
+          <label class="radio-pill"><input type="radio" name="scope" value="one">This page only</label>
+        </div>
+      </div>
+
+      <button class="btn seal" id="runBtn" style="margin-top:1rem;">Apply &amp; download</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const optionsBox = document.getElementById('options');
+  const baseCanvas = document.getElementById('baseCanvas');
+  const baseCtx = baseCanvas.getContext('2d');
+  const cropLayer = document.getElementById('cropLayer');
+
+  let currentFile = null, originalBytes = null, pdfDoc = null, pageCount = 0;
+  let currentPageIdx = 0;
+  let box = { xRel: 0.05, yRel: 0.05, wRel: 0.9, hRel: 0.9 };
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    document.getElementById('loadStatus').textContent = 'Opening…';
+    originalBytes = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    pageCount = pdfDoc.numPages;
+    currentPageIdx = 0;
+    box = { xRel: 0.05, yRel: 0.05, wRel: 0.9, hRel: 0.9 };
+
+    document.getElementById('loadStatus').textContent = '';
+    optionsBox.style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+    buildStrip();
+    await renderCurrentPage();
+  }
+
+  function buildStrip(){
+    const strip = document.getElementById('pnStrip');
+    strip.innerHTML = '';
+    for (let i = 0; i < pageCount; i++){
+      const chip = el('button', 'pn-chip' + (i === currentPageIdx ? ' current' : ''), String(i + 1));
+      chip.addEventListener('click', () => { currentPageIdx = i; renderCurrentPage(); });
+      strip.appendChild(chip);
+    }
+  }
+  function markStrip(){
+    document.querySelectorAll('.pn-chip').forEach((c, i) => c.classList.toggle('current', i === currentPageIdx));
+  }
+
+  async function renderCurrentPage(){
+    const page = await pdfDoc.getPage(currentPageIdx + 1);
+    const vp1 = page.getViewport({ scale: 1 });
+    const scale = Math.min(720 / vp1.width, 860 / vp1.height, 3);
+    const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
+    baseCanvas.width = viewport.width; baseCanvas.height = viewport.height;
+    await page.render({ canvasContext: baseCtx, viewport }).promise;
+    markStrip();
+    buildCropBox();
+  }
+
+  function buildCropBox(){
+    cropLayer.innerHTML = '';
+    const boxEl = el('div', 'crop-box');
+    positionBox(boxEl);
+    const handle = el('div', 'resize-handle');
+    boxEl.appendChild(handle);
+    cropLayer.appendChild(boxEl);
+
+    boxEl.addEventListener('pointerdown', (e) => {
+      if (e.target === handle) return;
+      e.preventDefault();
+      const rect = cropLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startXRel = box.xRel, startYRel = box.yRel;
+      boxEl.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const dyRel = (ev.clientY - startY) / rect.height;
+        box.xRel = Math.min(Math.max(startXRel + dxRel, 0), 1 - box.wRel);
+        box.yRel = Math.min(Math.max(startYRel + dyRel, 0), 1 - box.hRel);
+        positionBox(boxEl);
+      }
+      function up(ev){
+        boxEl.releasePointerCapture(ev.pointerId);
+        boxEl.removeEventListener('pointermove', move);
+        boxEl.removeEventListener('pointerup', up);
+      }
+      boxEl.addEventListener('pointermove', move);
+      boxEl.addEventListener('pointerup', up);
+    });
+
+    handle.addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const rect = cropLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = box.wRel, startH = box.hRel;
+      handle.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const dyRel = (ev.clientY - startY) / rect.height;
+        box.wRel = Math.min(Math.max(startW + dxRel, 0.05), 1 - box.xRel);
+        box.hRel = Math.min(Math.max(startH + dyRel, 0.05), 1 - box.yRel);
+        positionBox(boxEl);
+      }
+      function up(ev){
+        handle.releasePointerCapture(ev.pointerId);
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', up);
+      }
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', up);
+    });
+  }
+  function positionBox(boxEl){
+    boxEl.style.left = (box.xRel * 100) + '%';
+    boxEl.style.top = (box.yRel * 100) + '%';
+    boxEl.style.width = (box.wRel * 100) + '%';
+    boxEl.style.height = (box.hRel * 100) + '%';
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentPageIdx > 0){ currentPageIdx--; renderCurrentPage(); }
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (currentPageIdx < pageCount - 1){ currentPageIdx++; renderCurrentPage(); }
+  });
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const scope = document.querySelector('input[name=scope]:checked').value;
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Cropping…';
+
+    try {
+      const { PDFDocument } = PDFLib;
+      const outDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      const pages = outDoc.getPages();
+
+      function applyCrop(page){
+        const { width, height } = page.getSize();
+        const x = box.xRel * width;
+        const y = height - (box.yRel + box.hRel) * height;
+        const w = box.wRel * width;
+        const h = box.hRel * height;
+        page.setCropBox(x, y, w, h);
+      }
+
+      if (scope === 'all'){
+        pages.forEach(applyCrop);
+      } else {
+        applyCrop(pages[currentPageIdx]);
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Cropped';
+      document.getElementById('resultMeta').textContent =
+        (scope === 'all' ? `All ${pageCount} pages` : `Page ${currentPageIdx + 1} only`) + ` · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not crop this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-cropped.pdf`);
+    }
+  });
+
+  document.querySelectorAll('input[name=scope]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      document.querySelectorAll('input[name=scope]').forEach(i => i.closest('.radio-pill').classList.toggle('active', i.checked));
+    });
+  });
+</script>
+</body>
+</html>

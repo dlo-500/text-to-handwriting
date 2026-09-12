@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit PDF | Arzi Lab</title>
+<meta name="description" content="Add text, images, shapes or freehand marks anywhere on a PDF page, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .toolbar{ display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; margin-top:1rem; }
+  .tool-btn{
+    border:1px solid var(--paper-line); background:var(--paper-white); border-radius:var(--radius-s);
+    padding:.5rem .9rem; font-size:.85rem; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .tool-btn.active{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); }
+  .swatch{ width:24px; height:24px; border-radius:50%; border:2px solid transparent; cursor:pointer; }
+  .swatch.active{ border-color:var(--ink); }
+  .page-nav{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+  .page-nav .pn-strip{ display:flex; gap:.35rem; overflow-x:auto; padding:.15rem; flex:1; min-width:120px; }
+  .pn-chip{ flex:none; width:30px; height:30px; border-radius:var(--radius-s); border:1px solid var(--paper-line); background:var(--paper-white); font-size:.76rem; cursor:pointer; color:var(--ink-soft); }
+  .pn-chip.current{ border-color:var(--seal); color:var(--seal); font-weight:700; }
+  .stage-outer{ margin-top:1rem; max-width:100%; overflow:auto; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:#e9e4d4; padding:10px; }
+  .stage-inner{ position:relative; display:inline-block; }
+  .stage-inner canvas.base{ display:block; max-width:100%; height:auto; }
+  .stage-inner canvas.draw{ position:absolute; top:0; left:0; max-width:100%; height:auto; cursor:crosshair; }
+  .overlayLayer{ position:absolute; inset:0; }
+  .sig-box{ position:absolute; border:1.5px dashed var(--seal); cursor:move; touch-action:none; }
+  .sig-box img{ width:100%; height:100%; display:block; pointer-events:none; }
+  .sig-box .resize-handle{ position:absolute; right:-7px; bottom:-7px; width:15px; height:15px; border-radius:50%; background:var(--seal); border:2px solid #fff; cursor:nwse-resize; touch-action:none; }
+  .sig-box .sig-remove{ position:absolute; top:-11px; right:-11px; width:20px; height:20px; border-radius:50%; background:var(--ink); color:#fff; border:2px solid #fff; font-size:.7rem; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Edit PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Edit PDF</h1>
+  <p class="lab-sub">Add text, drop in an image, draw a shape, or mark freehand — everything is added on top of the page, so the original content stays intact.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+    <div class="status-line" id="loadStatus"></div>
+
+    <div id="options" style="display:none;">
+      <div class="toolbar">
+        <button class="tool-btn active" data-tool="text">Text</button>
+        <button class="tool-btn" data-tool="image">Image</button>
+        <button class="tool-btn" data-tool="rect">Rectangle</button>
+        <button class="tool-btn" data-tool="circle">Circle</button>
+        <button class="tool-btn" data-tool="line">Line</button>
+        <button class="tool-btn" data-tool="ink">Freehand</button>
+        <button class="tool-btn" data-tool="erase">Eraser</button>
+        <input type="file" id="imgPickInput" accept="image/*" style="display:none;">
+      </div>
+      <div class="toolbar">
+        <span style="font-size:.8rem; color:var(--ink-soft);">Colour:</span>
+        <span class="swatch active" data-c="#1b2430" style="background:#1b2430;"></span>
+        <span class="swatch" data-c="#8a2e24" style="background:#8a2e24;"></span>
+        <span class="swatch" data-c="#1d3a6e" style="background:#1d3a6e;"></span>
+        <span class="swatch" data-c="#2f5233" style="background:#2f5233;"></span>
+        <span style="font-size:.8rem; color:var(--ink-soft); margin-left:.6rem;">Line width</span>
+        <input type="range" id="strokeWidth" min="1" max="10" value="2" style="width:90px;">
+        <label style="font-size:.8rem; color:var(--ink-soft);"><input type="checkbox" id="fillShape"> Fill</label>
+        <span style="font-size:.8rem; color:var(--ink-soft); margin-left:.6rem;">Text size</span>
+        <input type="range" id="textSize" min="10" max="48" value="18" style="width:90px;">
+      </div>
+
+      <div class="page-nav">
+        <button class="btn secondary" id="prevBtn">←</button>
+        <div class="pn-strip" id="pnStrip"></div>
+        <button class="btn secondary" id="nextBtn">→</button>
+      </div>
+
+      <div class="stage-outer">
+        <div class="stage-inner" id="stageInner">
+          <canvas id="baseCanvas" class="base"></canvas>
+          <canvas id="drawCanvas" class="draw"></canvas>
+          <div class="overlayLayer" id="overlayLayer"></div>
+        </div>
+      </div>
+      <p class="hint" id="toolHint" style="font-size:.8rem; color:var(--ink-soft); margin-top:.5rem;">Tap the page to place text.</p>
+
+      <button class="btn seal" id="runBtn" style="margin-top:1.2rem;">Apply &amp; download</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const HINTS = {
+    text: 'Tap the page to place text.',
+    image: 'Choose an image, then tap the page to place it.',
+    rect: 'Drag to draw a rectangle.',
+    circle: 'Drag to draw a circle.',
+    line: 'Drag to draw a line.',
+    ink: 'Draw freehand with your finger, stylus or mouse.',
+    erase: 'Tap any mark, text box or image to remove it.'
+  };
+
+  let currentTool = 'text';
+  document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTool = btn.dataset.tool;
+      document.getElementById('toolHint').textContent = HINTS[currentTool];
+      if (currentTool === 'image') document.getElementById('imgPickInput').click();
+    });
+  });
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+    });
+  });
+  function currentColor(){ return document.querySelector('.swatch.active').dataset.c; }
+
+  let pendingImage = null; // dataUrl for the "image" tool
+  document.getElementById('imgPickInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => { pendingImage = reader.result; toast('Now tap the page to place it'); };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  /* ---------- PDF loading ---------- */
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, originalBytes = null, pdfDoc = null, pageCount = 0, currentPageIdx = 0;
+  let pages = []; // { shapes: [], boxes: [] }
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    document.getElementById('loadStatus').textContent = 'Opening…';
+    originalBytes = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    pageCount = pdfDoc.numPages;
+    pages = Array.from({ length: pageCount }, () => ({ shapes: [], boxes: [] }));
+    currentPageIdx = 0;
+
+    document.getElementById('loadStatus').textContent = '';
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+    buildStrip();
+    await renderCurrentPage();
+  }
+
+  function buildStrip(){
+    const strip = document.getElementById('pnStrip');
+    strip.innerHTML = '';
+    for (let i = 0; i < pageCount; i++){
+      const chip = el('button', 'pn-chip', String(i + 1));
+      chip.addEventListener('click', () => { currentPageIdx = i; renderCurrentPage(); });
+      strip.appendChild(chip);
+    }
+    markStrip();
+  }
+  function markStrip(){
+    document.querySelectorAll('.pn-chip').forEach((c, i) => c.classList.toggle('current', i === currentPageIdx));
+  }
+
+  const baseCanvas = document.getElementById('baseCanvas');
+  const baseCtx = baseCanvas.getContext('2d');
+  const drawCanvas = document.getElementById('drawCanvas');
+  const drawCtx = drawCanvas.getContext('2d');
+  const overlayLayer = document.getElementById('overlayLayer');
+
+  async function renderCurrentPage(){
+    const page = await pdfDoc.getPage(currentPageIdx + 1);
+    const vp1 = page.getViewport({ scale: 1 });
+    const scale = Math.min(720 / vp1.width, 860 / vp1.height, 3);
+    const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
+    [baseCanvas, drawCanvas].forEach(c => { c.width = viewport.width; c.height = viewport.height; });
+    document.getElementById('stageInner').style.width = viewport.width + 'px';
+    await page.render({ canvasContext: baseCtx, viewport }).promise;
+    markStrip();
+    redrawShapes();
+    renderOverlayBoxes();
+  }
+
+  /* ---------- shapes (rect/circle/line/ink) on canvas ---------- */
+  function bboxOfShape(s){
+    if (s.type === 'ink'){
+      const xs = s.pts.map(p => p.x), ys = s.pts.map(p => p.y);
+      return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    }
+    const x = Math.min(s.x1, s.x2), y = Math.min(s.y1, s.y2);
+    return { x, y, w: Math.abs(s.x2 - s.x1) || 0.01, h: Math.abs(s.y2 - s.y1) || 0.01 };
+  }
+  function drawShape(ctx, s, w, h){
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color;
+    ctx.lineWidth = s.strokeWidth;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (s.type === 'rect'){
+      const x = Math.min(s.x1, s.x2) * w, y = Math.min(s.y1, s.y2) * h;
+      const rw = Math.abs(s.x2 - s.x1) * w, rh = Math.abs(s.y2 - s.y1) * h;
+      if (s.filled){ ctx.globalAlpha = 0.35; ctx.fillRect(x, y, rw, rh); ctx.globalAlpha = 1; }
+      ctx.strokeRect(x, y, rw, rh);
+    } else if (s.type === 'circle'){
+      const cx = (s.x1 + s.x2) / 2 * w, cy = (s.y1 + s.y2) / 2 * h;
+      const rx = Math.abs(s.x2 - s.x1) / 2 * w, ry = Math.abs(s.y2 - s.y1) / 2 * h;
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      if (s.filled){ ctx.globalAlpha = 0.35; ctx.fill(); ctx.globalAlpha = 1; }
+      ctx.stroke();
+    } else if (s.type === 'line'){
+      ctx.beginPath(); ctx.moveTo(s.x1 * w, s.y1 * h); ctx.lineTo(s.x2 * w, s.y2 * h); ctx.stroke();
+    } else if (s.type === 'ink'){
+      ctx.beginPath();
+      s.pts.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x * w, p.y * h); else ctx.lineTo(p.x * w, p.y * h); });
+      ctx.stroke();
+    }
+  }
+  function redrawShapes(temp){
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    pages[currentPageIdx].shapes.forEach(s => drawShape(drawCtx, s, drawCanvas.width, drawCanvas.height));
+    if (temp) drawShape(drawCtx, temp, drawCanvas.width, drawCanvas.height);
+  }
+  function getPos(e){
+    const r = drawCanvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (drawCanvas.width / r.width), y: (e.clientY - r.top) * (drawCanvas.height / r.height) };
+  }
+
+  let dragStart = null, inkPts = null;
+  drawCanvas.addEventListener('pointerdown', (e) => {
+    if (['rect','circle','line'].includes(currentTool)){
+      dragStart = getPos(e); drawCanvas.setPointerCapture(e.pointerId);
+    } else if (currentTool === 'ink'){
+      const p = getPos(e);
+      inkPts = [{ x: p.x / drawCanvas.width, y: p.y / drawCanvas.height }];
+      drawCanvas.setPointerCapture(e.pointerId);
+    } else if (currentTool === 'erase'){
+      const p = getPos(e);
+      const rx = p.x / drawCanvas.width, ry = p.y / drawCanvas.height;
+      const shapes = pages[currentPageIdx].shapes;
+      for (let i = shapes.length - 1; i >= 0; i--){
+        const b = bboxOfShape(shapes[i]);
+        const pad = 0.01;
+        if (rx >= b.x - pad && rx <= b.x + b.w + pad && ry >= b.y - pad && ry <= b.y + b.h + pad){
+          shapes.splice(i, 1); redrawShapes(); return;
+        }
+      }
+    } else if (currentTool === 'text'){
+      const p = getPos(e);
+      const text = prompt('Text:', '');
+      if (text && text.trim()) placeTextBox(text.trim(), p.x / drawCanvas.width, p.y / drawCanvas.height);
+    } else if (currentTool === 'image'){
+      if (!pendingImage){ toast('Choose an image first', 'error'); return; }
+      const p = getPos(e);
+      placeImageBox(pendingImage, p.x / drawCanvas.width, p.y / drawCanvas.height);
+    }
+  });
+  drawCanvas.addEventListener('pointermove', (e) => {
+    if (dragStart && ['rect','circle','line'].includes(currentTool)){
+      const p = getPos(e);
+      redrawShapes({
+        type: currentTool, color: currentColor(), strokeWidth: parseInt(document.getElementById('strokeWidth').value, 10),
+        filled: document.getElementById('fillShape').checked,
+        x1: dragStart.x / drawCanvas.width, y1: dragStart.y / drawCanvas.height,
+        x2: p.x / drawCanvas.width, y2: p.y / drawCanvas.height
+      });
+    } else if (inkPts){
+      const p = getPos(e);
+      inkPts.push({ x: p.x / drawCanvas.width, y: p.y / drawCanvas.height });
+      redrawShapes({ type: 'ink', color: currentColor(), strokeWidth: parseInt(document.getElementById('strokeWidth').value, 10), pts: inkPts });
+    }
+  });
+  drawCanvas.addEventListener('pointerup', (e) => {
+    if (dragStart && ['rect','circle','line'].includes(currentTool)){
+      const p = getPos(e);
+      const shape = {
+        type: currentTool, color: currentColor(), strokeWidth: parseInt(document.getElementById('strokeWidth').value, 10),
+        filled: document.getElementById('fillShape').checked,
+        x1: dragStart.x / drawCanvas.width, y1: dragStart.y / drawCanvas.height,
+        x2: p.x / drawCanvas.width, y2: p.y / drawCanvas.height
+      };
+      if (Math.hypot(p.x - dragStart.x, p.y - dragStart.y) > 4) pages[currentPageIdx].shapes.push(shape);
+      dragStart = null; redrawShapes();
+    } else if (inkPts){
+      if (inkPts.length > 1) pages[currentPageIdx].shapes.push({ type: 'ink', color: currentColor(), strokeWidth: parseInt(document.getElementById('strokeWidth').value, 10), pts: inkPts });
+      inkPts = null; redrawShapes();
+    }
+  });
+
+  /* ---------- text/image boxes (draggable overlay) ---------- */
+  function placeTextBox(text, xRel, yRel){
+    const size = parseInt(document.getElementById('textSize').value, 10);
+    const color = currentColor();
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = `${size * 3}px Inter, sans-serif`;
+    const textW = measure.measureText(text).width;
+    const c = document.createElement('canvas');
+    c.width = textW + 20; c.height = size * 3 * 1.4;
+    const ctx = c.getContext('2d');
+    ctx.font = `${size * 3}px Inter, sans-serif`;
+    ctx.fillStyle = color; ctx.textBaseline = 'top';
+    ctx.fillText(text, 5, size * 3 * 0.15);
+    addBox(c.toDataURL('image/png'), c.width, c.height, xRel, yRel);
+  }
+  function placeImageBox(dataUrl, xRel, yRel){
+    const img = new Image();
+    img.onload = () => addBox(dataUrl, img.naturalWidth, img.naturalHeight, xRel, yRel);
+    img.src = dataUrl;
+  }
+  function addBox(dataUrl, natW, natH, xRel, yRel){
+    const aspect = natH / natW;
+    const wRel = 0.28;
+    const rect = overlayLayer.getBoundingClientRect();
+    const hRel = wRel * aspect * (rect.width / rect.height);
+    const box = {
+      id: 'b' + Math.random().toString(36).slice(2), dataUrl, aspect,
+      xRel: Math.min(Math.max(xRel - wRel / 2, 0), 1 - wRel),
+      yRel: Math.min(Math.max(yRel - hRel / 2, 0), 1 - hRel),
+      wRel, hRel: Math.min(hRel, 0.9)
+    };
+    pages[currentPageIdx].boxes.push(box);
+    renderOverlayBoxes();
+  }
+
+  function renderOverlayBoxes(){
+    overlayLayer.innerHTML = '';
+    pages[currentPageIdx].boxes.forEach(buildBoxEl);
+  }
+  function buildBoxEl(b){
+    const box = el('div', 'sig-box');
+    box.style.left = (b.xRel * 100) + '%'; box.style.top = (b.yRel * 100) + '%';
+    box.style.width = (b.wRel * 100) + '%'; box.style.height = (b.hRel * 100) + '%';
+    const img = document.createElement('img'); img.src = b.dataUrl; box.appendChild(img);
+    const handle = el('div', 'resize-handle'); box.appendChild(handle);
+    const rm = el('button', 'sig-remove', '×'); box.appendChild(rm);
+
+    rm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pages[currentPageIdx].boxes = pages[currentPageIdx].boxes.filter(x => x.id !== b.id);
+      renderOverlayBoxes();
+    });
+    box.addEventListener('pointerdown', (e) => {
+      if (e.target === handle || e.target === rm) return;
+      if (currentTool === 'erase'){
+        pages[currentPageIdx].boxes = pages[currentPageIdx].boxes.filter(x => x.id !== b.id);
+        renderOverlayBoxes(); return;
+      }
+      e.preventDefault();
+      const rect = overlayLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startXRel = b.xRel, startYRel = b.yRel;
+      box.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width, dyRel = (ev.clientY - startY) / rect.height;
+        b.xRel = Math.min(Math.max(startXRel + dxRel, 0), 1 - b.wRel);
+        b.yRel = Math.min(Math.max(startYRel + dyRel, 0), 1 - b.hRel);
+        box.style.left = (b.xRel * 100) + '%'; box.style.top = (b.yRel * 100) + '%';
+      }
+      function up(ev){ box.releasePointerCapture(ev.pointerId); box.removeEventListener('pointermove', move); box.removeEventListener('pointerup', up); }
+      box.addEventListener('pointermove', move); box.addEventListener('pointerup', up);
+    });
+    handle.addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const rect = overlayLayer.getBoundingClientRect();
+      const startX = e.clientX; const startW = b.wRel;
+      handle.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const newW = Math.min(Math.max(startW + dxRel, 0.03), 1 - b.xRel);
+        b.wRel = newW; b.hRel = newW * b.aspect * (rect.width / rect.height);
+        box.style.width = (b.wRel * 100) + '%'; box.style.height = (b.hRel * 100) + '%';
+      }
+      function up(ev){ handle.releasePointerCapture(ev.pointerId); handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); }
+      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up);
+    });
+    overlayLayer.appendChild(box);
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => { if (currentPageIdx > 0){ currentPageIdx--; renderCurrentPage(); } });
+  document.getElementById('nextBtn').addEventListener('click', () => { if (currentPageIdx < pageCount - 1){ currentPageIdx++; renderCurrentPage(); } });
+
+  /* ---------- export ---------- */
+  function hexToRgb01(hex){ const n = parseInt(hex.slice(1), 16); return { r: ((n>>16)&255)/255, g: ((n>>8)&255)/255, b: (n&255)/255 }; }
+  function dataUrlToBytes(dataUrl){
+    const b64 = dataUrl.split(',')[1]; const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const total = pages.reduce((n,p) => n + p.shapes.length + p.boxes.length, 0);
+    if (total === 0){ toast('Add something to the page first', 'error'); return; }
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Applying edits…';
+
+    try {
+      const { PDFDocument, rgb } = PDFLib;
+      const outDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      const outPages = outDoc.getPages();
+      const embedCache = new Map();
+
+      for (let pIdx = 0; pIdx < pages.length; pIdx++){
+        const page = outPages[pIdx];
+        if (!page) continue;
+        const { width, height } = page.getSize();
+
+        for (const b of pages[pIdx].boxes){
+          if (!embedCache.has(b.dataUrl)) embedCache.set(b.dataUrl, await outDoc.embedPng(dataUrlToBytes(b.dataUrl)));
+          const w = b.wRel * width, h = b.hRel * height;
+          const x = b.xRel * width, y = height - (b.yRel + b.hRel) * height;
+          page.drawImage(embedCache.get(b.dataUrl), { x, y, width: w, height: h });
+        }
+
+        pages[pIdx].shapes.forEach(s => {
+          const c = hexToRgb01(s.color);
+          const color = rgb(c.r, c.g, c.b);
+          const lw = s.strokeWidth / drawCanvas.width * width;
+          if (s.type === 'rect'){
+            const x = Math.min(s.x1, s.x2) * width, y = height - Math.max(s.y1, s.y2) * height;
+            const w = Math.abs(s.x2 - s.x1) * width, h = Math.abs(s.y2 - s.y1) * height;
+            page.drawRectangle({ x, y, width: w, height: h, borderColor: color, borderWidth: lw, color: s.filled ? color : undefined, opacity: s.filled ? 0.35 : 1, borderOpacity: 1 });
+          } else if (s.type === 'circle'){
+            const cx = (s.x1 + s.x2) / 2 * width, cy = height - (s.y1 + s.y2) / 2 * height;
+            const rx = Math.abs(s.x2 - s.x1) / 2 * width, ry = Math.abs(s.y2 - s.y1) / 2 * height;
+            page.drawEllipse({ x: cx, y: cy, xScale: rx, yScale: ry, borderColor: color, borderWidth: lw, color: s.filled ? color : undefined, opacity: s.filled ? 0.35 : 1, borderOpacity: 1 });
+          } else if (s.type === 'line'){
+            page.drawLine({ start: { x: s.x1 * width, y: height - s.y1 * height }, end: { x: s.x2 * width, y: height - s.y2 * height }, thickness: lw, color });
+          } else if (s.type === 'ink'){
+            for (let i = 1; i < s.pts.length; i++){
+              page.drawLine({ start: { x: s.pts[i-1].x * width, y: height - s.pts[i-1].y * height }, end: { x: s.pts[i].x * width, y: height - s.pts[i].y * height }, thickness: lw, color });
+            }
+          }
+        });
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Edits applied';
+      document.getElementById('resultMeta').textContent = `${total} addition${total === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not apply your edits', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-edited.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

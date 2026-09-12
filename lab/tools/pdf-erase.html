@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Erase | Arzi Lab</title>
+<meta name="description" content="Black out names, numbers or blocks of text on a PDF before it circulates — the marked areas are rasterised away, not just covered.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .page-nav{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+  .page-nav .pn-strip{ display:flex; gap:.35rem; overflow-x:auto; padding:.15rem; flex:1; min-width:120px; }
+  .pn-chip{
+    flex:none; width:30px; height:30px; border-radius:var(--radius-s); border:1px solid var(--paper-line);
+    background:var(--paper-white); font-size:.76rem; cursor:pointer; position:relative; color:var(--ink-soft);
+  }
+  .pn-chip.current{ border-color:var(--seal); color:var(--seal); font-weight:700; }
+  .pn-chip.marked::after{
+    content:""; position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--seal);
+  }
+  .stage{
+    position:relative; margin-top:1rem; border:1px solid var(--paper-line); border-radius:var(--radius-s);
+    background:repeating-conic-gradient(#f3f3f3 0% 25%, #fff 0% 50%) 0 0/16px 16px;
+    display:flex; justify-content:center; max-width:100%; overflow:auto;
+  }
+  .stage canvas{ display:block; max-width:100%; height:auto; touch-action:none; }
+  .stage canvas.overlay{ position:absolute; top:0; left:0; cursor:crosshair; }
+  .erase-toolbar{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:1rem; }
+  .swatch-group{ display:flex; align-items:center; gap:.5rem; }
+  .swatch{
+    width:26px; height:26px; border-radius:50%; border:2px solid transparent; cursor:pointer;
+  }
+  .swatch[data-c="#000000"]{ background:#000; }
+  .swatch[data-c="#FFFFFF"]{ background:#fff; border-color:var(--paper-line); }
+  .swatch.active{ border-color:var(--seal); }
+  .hint{ font-size:.8rem; color:var(--ink-soft); margin-top:.5rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Smart erase</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Smart erase</h1>
+  <p class="lab-sub">Open a PDF, drag over anything that needs to disappear — a name, a signature, a stray mark — and it's painted out permanently when you download.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+    <div class="status-line" id="loadStatus"></div>
+
+    <div id="options" style="display:none;">
+      <div class="page-nav">
+        <button class="btn secondary" id="prevBtn">←</button>
+        <div class="pn-strip" id="pnStrip"></div>
+        <button class="btn secondary" id="nextBtn">→</button>
+      </div>
+
+      <div class="stage" id="stage">
+        <canvas id="baseCanvas"></canvas>
+        <canvas id="overlayCanvas" class="overlay"></canvas>
+      </div>
+      <p class="hint">Drag to mark an area · tap an existing mark to remove it.</p>
+
+      <div class="erase-toolbar">
+        <div class="swatch-group">
+          <span style="font-size:.82rem; color:var(--ink-soft);">Fill:</span>
+          <span class="swatch active" data-c="#000000"></span>
+          <span class="swatch" data-c="#FFFFFF"></span>
+          <input type="color" id="customColor" value="#8a2e24" title="Custom colour">
+        </div>
+        <button class="btn secondary" id="undoBtn">Undo last mark</button>
+        <button class="btn secondary" id="clearPageBtn">Clear this page</button>
+      </div>
+
+      <div class="status-line" id="marksLine"></div>
+
+      <button class="btn seal" id="runBtn" style="margin-top:1.2rem;">Apply &amp; download</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">Marked pages are rendered to an image before export, so whatever is under a mark is gone from the file — not hidden text, not a covered layer. Pages you don't mark are rebuilt the same way for a consistent, flattened result.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const optionsBox = document.getElementById('options');
+  const baseCanvas = document.getElementById('baseCanvas');
+  const overlayCanvas = document.getElementById('overlayCanvas');
+  const baseCtx = baseCanvas.getContext('2d');
+  const overlayCtx = overlayCanvas.getContext('2d');
+
+  let currentFile = null;
+  let originalBytes = null;
+  let pdfDoc = null;
+  let pageCount = 0;
+  let pageSizesPts = [];
+  let pages = [];        // { rects: [{xRel,yRel,wRel,hRel,color}] }
+  let currentPageIdx = 0;
+  let dragStart = null, dragCurrent = null, hitIndex = null;
+  let resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    document.getElementById('loadStatus').textContent = 'Opening…';
+    optionsBox.style.display = 'none';
+    document.getElementById('resultBox').classList.remove('show');
+
+    originalBytes = await file.arrayBuffer();
+    const libDoc = await PDFLib.PDFDocument.load(originalBytes.slice(0), { ignoreEncryption: true });
+    pageSizesPts = libDoc.getPages().map(p => { const s = p.getSize(); return { w: s.width, h: s.height }; });
+
+    pdfDoc = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    pageCount = pdfDoc.numPages;
+    pages = Array.from({ length: pageCount }, () => ({ rects: [] }));
+    currentPageIdx = 0;
+
+    document.getElementById('loadStatus').textContent = '';
+    optionsBox.style.display = '';
+    buildStrip();
+    await renderCurrentPage();
+  }
+
+  function buildStrip(){
+    const strip = document.getElementById('pnStrip');
+    strip.innerHTML = '';
+    for (let i = 0; i < pageCount; i++){
+      const chip = el('button', 'pn-chip' + (i === currentPageIdx ? ' current' : ''), String(i + 1));
+      chip.addEventListener('click', () => { currentPageIdx = i; renderCurrentPage(); });
+      strip.appendChild(chip);
+    }
+    markStripState();
+  }
+  function markStripState(){
+    document.querySelectorAll('.pn-chip').forEach((c, i) => {
+      c.classList.toggle('current', i === currentPageIdx);
+      c.classList.toggle('marked', pages[i].rects.length > 0);
+    });
+  }
+
+  async function renderCurrentPage(){
+    const page = await pdfDoc.getPage(currentPageIdx + 1);
+    const vp1 = page.getViewport({ scale: 1 });
+    const scale = Math.min(760 / vp1.width, 900 / vp1.height, 3);
+    const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
+
+    [baseCanvas, overlayCanvas].forEach(c => { c.width = viewport.width; c.height = viewport.height; });
+    document.getElementById('stage').style.width = viewport.width + 'px';
+    document.getElementById('stage').style.height = viewport.height + 'px';
+
+    await page.render({ canvasContext: baseCtx, viewport }).promise;
+    redrawOverlay();
+    markStripState();
+    document.getElementById('marksLine').textContent =
+      `${pages[currentPageIdx].rects.length} mark(s) on this page · ${pages.reduce((n,p)=>n+p.rects.length,0)} total`;
+  }
+
+  function paintRects(ctx, rects, w, h, tempRect){
+    ctx.clearRect(0, 0, w, h);
+    rects.forEach(r => {
+      ctx.fillStyle = r.color;
+      ctx.fillRect(r.xRel * w, r.yRel * h, r.wRel * w, r.hRel * h);
+    });
+    if (tempRect){
+      ctx.fillStyle = tempRect.color;
+      ctx.globalAlpha = 0.55;
+      ctx.fillRect(tempRect.x, tempRect.y, tempRect.w, tempRect.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = 'rgba(0,0,0,.5)';
+      ctx.setLineDash([4,3]);
+      ctx.strokeRect(tempRect.x, tempRect.y, tempRect.w, tempRect.h);
+      ctx.setLineDash([]);
+    }
+  }
+  function redrawOverlay(tempRect){
+    paintRects(overlayCtx, pages[currentPageIdx].rects, overlayCanvas.width, overlayCanvas.height, tempRect);
+  }
+
+  function currentColor(){
+    const active = document.querySelector('.swatch.active');
+    return active ? active.dataset.c : document.getElementById('customColor').value;
+  }
+  document.querySelectorAll('.swatch').forEach(s => {
+    s.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+    });
+  });
+  document.getElementById('customColor').addEventListener('input', (e) => {
+    document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+    e.target.style.outline = '2px solid var(--seal)';
+  });
+
+  function getPos(e){
+    const r = overlayCanvas.getBoundingClientRect();
+    const scaleX = overlayCanvas.width / r.width;
+    const scaleY = overlayCanvas.height / r.height;
+    return { x: (e.clientX - r.left) * scaleX, y: (e.clientY - r.top) * scaleY };
+  }
+  function findRectAt(pos){
+    const rects = pages[currentPageIdx].rects;
+    for (let i = rects.length - 1; i >= 0; i--){
+      const r = rects[i];
+      const px = pos.x / overlayCanvas.width, py = pos.y / overlayCanvas.height;
+      if (px >= r.xRel && px <= r.xRel + r.wRel && py >= r.yRel && py <= r.yRel + r.hRel) return i;
+    }
+    return null;
+  }
+
+  overlayCanvas.addEventListener('pointerdown', (e) => {
+    dragStart = getPos(e);
+    hitIndex = findRectAt(dragStart);
+    overlayCanvas.setPointerCapture(e.pointerId);
+  });
+  overlayCanvas.addEventListener('pointermove', (e) => {
+    if (!dragStart) return;
+    dragCurrent = getPos(e);
+    const x = Math.min(dragStart.x, dragCurrent.x), y = Math.min(dragStart.y, dragCurrent.y);
+    const w = Math.abs(dragCurrent.x - dragStart.x), h = Math.abs(dragCurrent.y - dragStart.y);
+    redrawOverlay({ x, y, w, h, color: currentColor() });
+  });
+  overlayCanvas.addEventListener('pointerup', (e) => {
+    if (!dragStart) return;
+    const pos = getPos(e);
+    const dist = Math.hypot(pos.x - dragStart.x, pos.y - dragStart.y);
+    if (dist < 6){
+      if (hitIndex !== null) pages[currentPageIdx].rects.splice(hitIndex, 1);
+    } else {
+      const x = Math.min(dragStart.x, pos.x), y = Math.min(dragStart.y, pos.y);
+      const w = Math.abs(pos.x - dragStart.x), h = Math.abs(pos.y - dragStart.y);
+      pages[currentPageIdx].rects.push({
+        xRel: x / overlayCanvas.width, yRel: y / overlayCanvas.height,
+        wRel: w / overlayCanvas.width, hRel: h / overlayCanvas.height,
+        color: currentColor()
+      });
+    }
+    dragStart = null; dragCurrent = null; hitIndex = null;
+    redrawOverlay();
+    markStripState();
+    document.getElementById('marksLine').textContent =
+      `${pages[currentPageIdx].rects.length} mark(s) on this page · ${pages.reduce((n,p)=>n+p.rects.length,0)} total`;
+  });
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentPageIdx > 0){ currentPageIdx--; renderCurrentPage(); }
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (currentPageIdx < pageCount - 1){ currentPageIdx++; renderCurrentPage(); }
+  });
+  document.getElementById('undoBtn').addEventListener('click', () => {
+    pages[currentPageIdx].rects.pop();
+    redrawOverlay(); markStripState();
+    document.getElementById('marksLine').textContent =
+      `${pages[currentPageIdx].rects.length} mark(s) on this page · ${pages.reduce((n,p)=>n+p.rects.length,0)} total`;
+  });
+  document.getElementById('clearPageBtn').addEventListener('click', () => {
+    pages[currentPageIdx].rects = [];
+    redrawOverlay(); markStripState();
+    document.getElementById('marksLine').textContent = `0 mark(s) on this page · ${pages.reduce((n,p)=>n+p.rects.length,0)} total`;
+  });
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Flattening pages…';
+
+    try {
+      const outDoc = await PDFLib.PDFDocument.create();
+      for (let i = 0; i < pageCount; i++){
+        const page = await pdfDoc.getPage(i + 1);
+        const ptsSize = pageSizesPts[i];
+        const exportScale = Math.max(2, 1600 / (ptsSize ? ptsSize.w : 800));
+        const viewport = page.getViewport({ scale: exportScale });
+        const c = document.createElement('canvas');
+        c.width = viewport.width; c.height = viewport.height;
+        const ctx = c.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        pages[i].rects.forEach(r => {
+          ctx.fillStyle = r.color;
+          ctx.fillRect(r.xRel * c.width, r.yRel * c.height, r.wRel * c.width, r.hRel * c.height);
+        });
+
+        const pngBlob = await new Promise(res => c.toBlob(res, 'image/png'));
+        const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
+        const png = await outDoc.embedPng(pngBytes);
+        const { w, h } = ptsSize || { w: c.width, h: c.height };
+        const outPage = outDoc.addPage([w, h]);
+        outPage.drawImage(png, { x: 0, y: 0, width: w, height: h });
+
+        setProgress(document.getElementById('progress'), Math.round(((i + 1) / pageCount) * 100));
+      }
+
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Erased marks applied';
+      document.getElementById('resultMeta').textContent = `${pageCount} pages · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not process this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-erased.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

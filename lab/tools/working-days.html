@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Working Days | Arzi Lab</title>
+<meta name="description" content="Count weekdays between two dates, skipping weekends and any holidays you add, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .day-toggles{ display:flex; gap:.4rem; flex-wrap:wrap; }
+  .day-toggle{
+    border:1px solid var(--paper-line); border-radius:999px; padding:.35rem .8rem; font-size:.8rem;
+    cursor:pointer; background:var(--paper-white); user-select:none;
+  }
+  .day-toggle input{ display:none; }
+  .day-toggle.off{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); font-weight:600; }
+  .holiday-add{ display:flex; gap:.6rem; align-items:flex-end; }
+  .holiday-add .field{ flex:1; margin-bottom:0; }
+  .holiday-list{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.8rem; }
+  .holiday-chip{
+    display:flex; align-items:center; gap:.4rem; background:var(--paper-white); border:1px solid var(--paper-line);
+    border-radius:999px; padding:.3rem .7rem .3rem .9rem; font-size:.8rem;
+  }
+  .holiday-chip button{ background:none; border:none; color:var(--seal); cursor:pointer; font-size:.9rem; padding:0; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Working days</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Working days</h1>
+  <p class="lab-sub">Count weekdays between two dates, skipping weekends and any holidays you add — for deadlines measured in working days rather than calendar days.</p>
+
+  <div class="bench">
+    <div class="row">
+      <div class="field">
+        <label for="dateFrom">From</label>
+        <input type="date" id="dateFrom">
+      </div>
+      <div class="field">
+        <label for="dateTo">To</label>
+        <input type="date" id="dateTo">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Both dates counted (inclusive)</label>
+      <div class="hint" style="margin-top:-.2rem;">The from-date and to-date are both included if they're working days.</div>
+    </div>
+
+    <div class="field">
+      <label>Weekend days</label>
+      <div class="day-toggles" id="weekendToggles"></div>
+    </div>
+
+    <div class="field">
+      <label for="holidayInput">Holidays to exclude</label>
+      <div class="holiday-add">
+        <div class="field"><input type="date" id="holidayInput"></div>
+        <button class="btn secondary" id="addHoliday" type="button">Add</button>
+      </div>
+      <div class="holiday-list" id="holidayList"></div>
+    </div>
+
+    <button class="btn seal" id="runBtn">Calculate</button>
+    <div class="result" id="resultBox">
+      <div class="r-title" id="resultTitle"></div>
+      <div class="r-meta" id="resultMeta"></div>
+    </div>
+  </div>
+
+  <p class="lab-note">Add court or office holidays one at a time — they're remembered only for this calculation, not saved anywhere.</p>
+</main>
+
+<script src="../lab-common.js"></script>
+<script>
+  const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const weekendOff = new Set([0, 6]); // Sun, Sat by default
+  let holidays = []; // array of 'yyyy-mm-dd'
+
+  const togglesEl = document.getElementById('weekendToggles');
+  DAY_NAMES.forEach((name, idx) => {
+    const label = el('label', 'day-toggle' + (weekendOff.has(idx) ? ' off' : ''));
+    label.innerHTML = `<input type="checkbox" ${weekendOff.has(idx) ? 'checked' : ''}> ${name.slice(0,3)}`;
+    label.querySelector('input').addEventListener('change', (e) => {
+      if (e.target.checked) weekendOff.add(idx); else weekendOff.delete(idx);
+      label.classList.toggle('off', e.target.checked);
+    });
+    togglesEl.appendChild(label);
+  });
+
+  document.getElementById('addHoliday').addEventListener('click', () => {
+    const v = document.getElementById('holidayInput').value;
+    if (!v){ toast('Pick a date first', 'error'); return; }
+    if (holidays.includes(v)){ toast('Already added', 'error'); return; }
+    holidays.push(v);
+    holidays.sort();
+    renderHolidays();
+  });
+
+  function renderHolidays(){
+    const list = document.getElementById('holidayList');
+    list.innerHTML = '';
+    holidays.forEach(h => {
+      const chip = el('span', 'holiday-chip');
+      const d = parseLocalDate(h);
+      const label = d.toLocaleDateString('en-IN', { year:'numeric', month:'short', day:'numeric' });
+      chip.innerHTML = `<span>${label}</span>`;
+      const rm = document.createElement('button');
+      rm.textContent = '×';
+      rm.addEventListener('click', () => { holidays = holidays.filter(x => x !== h); renderHolidays(); });
+      chip.appendChild(rm);
+      list.appendChild(chip);
+    });
+  }
+
+  function parseLocalDate(str){
+    const [y,m,d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  function fmtDate(dt){
+    return dt.toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  }
+  function isoLocal(dt){
+    return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  }
+
+  document.getElementById('runBtn').addEventListener('click', () => {
+    const fromV = document.getElementById('dateFrom').value;
+    const toV = document.getElementById('dateTo').value;
+    if (!fromV || !toV){ toast('Pick both dates', 'error'); return; }
+    let from = parseLocalDate(fromV);
+    let to = parseLocalDate(toV);
+    const reversed = from > to;
+    if (reversed){ const t = from; from = to; to = t; }
+
+    const holidaySet = new Set(holidays);
+    let workingDays = 0, weekendCount = 0, holidayCount = 0, totalDays = 0;
+    const cur = new Date(from);
+    while (cur <= to){
+      totalDays++;
+      const iso = isoLocal(cur);
+      if (weekendOff.has(cur.getDay())){ weekendCount++; }
+      else if (holidaySet.has(iso)){ holidayCount++; }
+      else { workingDays++; }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    document.getElementById('resultTitle').textContent =
+      workingDays + (workingDays === 1 ? ' working day' : ' working days');
+    document.getElementById('resultMeta').textContent =
+      `${fmtDate(from)} → ${fmtDate(to)} · ${totalDays} calendar days total, ${weekendCount} weekend, ${holidayCount} holiday${holidayCount === 1 ? '' : 's'} excluded` +
+      (reversed ? ' (dates were swapped — to-date was before from-date)' : '');
+    document.getElementById('resultBox').classList.add('show');
+  });
+</script>
+</body>
+</html>

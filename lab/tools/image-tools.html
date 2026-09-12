@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resize, Crop &amp; Rotate | Arzi Lab</title>
+<meta name="description" content="Resize, crop, rotate and convert an image between PNG, JPEG and WebP, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .stage-outer{ margin-top:1rem; max-width:100%; overflow:auto; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:#e9e4d4; padding:10px; text-align:center; }
+  .stage-inner{ position:relative; display:inline-block; }
+  .stage-inner canvas{ display:block; max-width:100%; height:auto; }
+  .cropLayer{ position:absolute; inset:0; }
+  .crop-box{ position:absolute; border:1.5px dashed var(--seal); background:rgba(156,59,46,.08); touch-action:none; cursor:move; }
+  .crop-box .resize-handle{
+    position:absolute; right:-7px; bottom:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--seal); border:2px solid #fff; cursor:nwse-resize; touch-action:none;
+  }
+  .step{ border-top:1px solid var(--paper-line); padding-top:1.2rem; margin-top:1.4rem; }
+  .step:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .step h3{ font-family:var(--serif); font-size:1rem; margin:0 0 .8rem; }
+  .btn-tight{ padding:.5rem .9rem; font-size:.85rem; }
+  .dims-line{ font-size:.82rem; color:var(--ink-soft); margin-top:.5rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Resize, crop &amp; rotate</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Resize, crop &amp; rotate</h1>
+  <p class="lab-sub">Open a photo or scan, then crop, straighten, resize and convert it — each step applies to the result of the one before it.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="dz-title">Drop an image here, or tap to choose</div>
+      <div class="dz-sub">PNG, JPEG or WebP</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="workArea" style="display:none; margin-top:1.2rem;">
+      <div class="stage-outer">
+        <div class="stage-inner" id="stageInner">
+          <canvas id="viewCanvas"></canvas>
+          <div class="cropLayer" id="cropLayer"></div>
+        </div>
+      </div>
+      <div class="dims-line" id="dimsLine"></div>
+
+      <div class="step">
+        <h3>1. Crop</h3>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn secondary btn-tight" id="startCrop">Select an area</button>
+          <button class="btn seal btn-tight" id="applyCrop" disabled>Apply crop</button>
+          <button class="btn secondary btn-tight" id="resetCrop" disabled>Clear selection</button>
+        </div>
+      </div>
+
+      <div class="step">
+        <h3>2. Rotate &amp; straighten</h3>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn secondary btn-tight" id="rotLeft">↺ Rotate left 90°</button>
+          <button class="btn secondary btn-tight" id="rotRight">↻ Rotate right 90°</button>
+        </div>
+        <div class="field" style="margin-top:.9rem;">
+          <label for="fineAngle">Fine straighten: <span id="angleVal">0°</span></label>
+          <input type="range" id="fineAngle" min="-45" max="45" step="0.5" value="0">
+        </div>
+        <button class="btn seal btn-tight" id="applyAngle">Apply straighten</button>
+      </div>
+
+      <div class="step">
+        <h3>3. Resize</h3>
+        <div class="row">
+          <div class="field">
+            <label for="rw">Width (px)</label>
+            <input type="number" id="rw" min="1">
+          </div>
+          <div class="field">
+            <label for="rh">Height (px)</label>
+            <input type="number" id="rh" min="1">
+          </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem;">
+          <input type="checkbox" id="lockAspect" checked> Lock aspect ratio
+        </label>
+        <button class="btn seal btn-tight" id="applyResize" style="margin-top:.8rem;">Apply resize</button>
+      </div>
+
+      <div class="step">
+        <h3>4. Export</h3>
+        <div class="row">
+          <div class="field">
+            <label for="fmt">Format</label>
+            <select id="fmt">
+              <option value="image/png" selected>PNG</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/webp">WebP</option>
+            </select>
+          </div>
+          <div class="field" id="qualityField" style="display:none;">
+            <label for="quality">Quality: <span id="qualityVal">85%</span></label>
+            <input type="range" id="quality" min="10" max="100" value="85">
+          </div>
+        </div>
+        <button class="btn seal" id="downloadBtn">Download</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const viewCanvas = document.getElementById('viewCanvas');
+  const viewCtx = viewCanvas.getContext('2d');
+  const cropLayer = document.getElementById('cropLayer');
+  let workCanvas = document.createElement('canvas'); // holds current pixel state
+  let currentFile = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  function loadFile(file){
+    if (!file || !file.type.startsWith('image/')){ toast('Please choose an image file', 'error'); return; }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 3000;
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      workCanvas = document.createElement('canvas');
+      workCanvas.width = Math.round(img.naturalWidth * scale);
+      workCanvas.height = Math.round(img.naturalHeight * scale);
+      workCanvas.getContext('2d').drawImage(img, 0, 0, workCanvas.width, workCanvas.height);
+      document.getElementById('workArea').style.display = '';
+      refreshView();
+      document.getElementById('rw').value = workCanvas.width;
+      document.getElementById('rh').value = workCanvas.height;
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  function refreshView(){
+    viewCanvas.width = workCanvas.width;
+    viewCanvas.height = workCanvas.height;
+    viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+    viewCtx.drawImage(workCanvas, 0, 0);
+    document.getElementById('dimsLine').textContent = `${workCanvas.width} × ${workCanvas.height} px`;
+    document.getElementById('rw').value = workCanvas.width;
+    document.getElementById('rh').value = workCanvas.height;
+  }
+
+  /* ---- 1. crop ---- */
+  let cropBox = null; // {xRel,yRel,wRel,hRel}
+  let cropEl = null;
+
+  document.getElementById('startCrop').addEventListener('click', () => {
+    cropBox = { xRel: 0.1, yRel: 0.1, wRel: 0.8, hRel: 0.8 };
+    buildCropBox();
+    document.getElementById('applyCrop').disabled = false;
+    document.getElementById('resetCrop').disabled = false;
+  });
+  document.getElementById('resetCrop').addEventListener('click', () => {
+    cropBox = null;
+    cropLayer.innerHTML = '';
+    document.getElementById('applyCrop').disabled = true;
+    document.getElementById('resetCrop').disabled = true;
+  });
+
+  function buildCropBox(){
+    cropLayer.innerHTML = '';
+    cropEl = el('div', 'crop-box');
+    positionCropEl();
+    const handle = el('div', 'resize-handle');
+    cropEl.appendChild(handle);
+    cropLayer.appendChild(cropEl);
+
+    cropEl.addEventListener('pointerdown', (e) => {
+      if (e.target === handle) return;
+      e.preventDefault();
+      const rect = cropLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startXRel = cropBox.xRel, startYRel = cropBox.yRel;
+      cropEl.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const dyRel = (ev.clientY - startY) / rect.height;
+        cropBox.xRel = Math.min(Math.max(startXRel + dxRel, 0), 1 - cropBox.wRel);
+        cropBox.yRel = Math.min(Math.max(startYRel + dyRel, 0), 1 - cropBox.hRel);
+        positionCropEl();
+      }
+      function up(ev){
+        cropEl.releasePointerCapture(ev.pointerId);
+        cropEl.removeEventListener('pointermove', move);
+        cropEl.removeEventListener('pointerup', up);
+      }
+      cropEl.addEventListener('pointermove', move);
+      cropEl.addEventListener('pointerup', up);
+    });
+
+    handle.addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const rect = cropLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = cropBox.wRel, startH = cropBox.hRel;
+      handle.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const dyRel = (ev.clientY - startY) / rect.height;
+        cropBox.wRel = Math.min(Math.max(startW + dxRel, 0.05), 1 - cropBox.xRel);
+        cropBox.hRel = Math.min(Math.max(startH + dyRel, 0.05), 1 - cropBox.yRel);
+        positionCropEl();
+      }
+      function up(ev){
+        handle.releasePointerCapture(ev.pointerId);
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', up);
+      }
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', up);
+    });
+  }
+  function positionCropEl(){
+    cropEl.style.left = (cropBox.xRel * 100) + '%';
+    cropEl.style.top = (cropBox.yRel * 100) + '%';
+    cropEl.style.width = (cropBox.wRel * 100) + '%';
+    cropEl.style.height = (cropBox.hRel * 100) + '%';
+  }
+
+  document.getElementById('applyCrop').addEventListener('click', () => {
+    if (!cropBox) return;
+    const sx = Math.round(cropBox.xRel * workCanvas.width);
+    const sy = Math.round(cropBox.yRel * workCanvas.height);
+    const sw = Math.round(cropBox.wRel * workCanvas.width);
+    const sh = Math.round(cropBox.hRel * workCanvas.height);
+    const cropped = document.createElement('canvas');
+    cropped.width = sw; cropped.height = sh;
+    cropped.getContext('2d').drawImage(workCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    workCanvas = cropped;
+    cropBox = null; cropLayer.innerHTML = '';
+    document.getElementById('applyCrop').disabled = true;
+    document.getElementById('resetCrop').disabled = true;
+    refreshView();
+    toast('Crop applied');
+  });
+
+  /* ---- 2. rotate ---- */
+  function rotate90(dir){
+    const rotated = document.createElement('canvas');
+    rotated.width = workCanvas.height; rotated.height = workCanvas.width;
+    const ctx = rotated.getContext('2d');
+    ctx.translate(rotated.width / 2, rotated.height / 2);
+    ctx.rotate(dir * Math.PI / 2);
+    ctx.drawImage(workCanvas, -workCanvas.width / 2, -workCanvas.height / 2);
+    workCanvas = rotated;
+    refreshView();
+  }
+  document.getElementById('rotLeft').addEventListener('click', () => rotate90(-1));
+  document.getElementById('rotRight').addEventListener('click', () => rotate90(1));
+
+  document.getElementById('fineAngle').addEventListener('input', (e) => {
+    document.getElementById('angleVal').textContent = e.target.value + '°';
+    viewCanvas.style.transform = `rotate(${e.target.value}deg)`;
+  });
+  document.getElementById('applyAngle').addEventListener('click', () => {
+    const deg = parseFloat(document.getElementById('fineAngle').value) || 0;
+    viewCanvas.style.transform = '';
+    if (deg === 0) return;
+    const rad = deg * Math.PI / 180;
+    const w = workCanvas.width, h = workCanvas.height;
+    const newW = Math.round(Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad)));
+    const newH = Math.round(Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad)));
+    const rotated = document.createElement('canvas');
+    rotated.width = newW; rotated.height = newH;
+    const ctx = rotated.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, newW, newH);
+    ctx.translate(newW / 2, newH / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(workCanvas, -w / 2, -h / 2);
+    workCanvas = rotated;
+    document.getElementById('fineAngle').value = 0;
+    document.getElementById('angleVal').textContent = '0°';
+    refreshView();
+    toast('Straighten applied');
+  });
+
+  /* ---- 3. resize ---- */
+  document.getElementById('rw').addEventListener('input', () => {
+    if (!document.getElementById('lockAspect').checked) return;
+    const ratio = workCanvas.height / workCanvas.width;
+    const w = parseInt(document.getElementById('rw').value, 10) || 0;
+    document.getElementById('rh').value = Math.round(w * ratio);
+  });
+  document.getElementById('rh').addEventListener('input', () => {
+    if (!document.getElementById('lockAspect').checked) return;
+    const ratio = workCanvas.width / workCanvas.height;
+    const h = parseInt(document.getElementById('rh').value, 10) || 0;
+    document.getElementById('rw').value = Math.round(h * ratio);
+  });
+  document.getElementById('applyResize').addEventListener('click', () => {
+    const w = parseInt(document.getElementById('rw').value, 10);
+    const h = parseInt(document.getElementById('rh').value, 10);
+    if (!w || !h || w < 1 || h < 1){ toast('Enter a valid width and height', 'error'); return; }
+    const resized = document.createElement('canvas');
+    resized.width = w; resized.height = h;
+    resized.getContext('2d').drawImage(workCanvas, 0, 0, w, h);
+    workCanvas = resized;
+    refreshView();
+    toast('Resize applied');
+  });
+
+  /* ---- 4. export ---- */
+  document.getElementById('fmt').addEventListener('change', (e) => {
+    document.getElementById('qualityField').style.display = e.target.value === 'image/png' ? 'none' : '';
+  });
+  document.getElementById('quality').addEventListener('input', (e) => {
+    document.getElementById('qualityVal').textContent = e.target.value + '%';
+  });
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const fmt = document.getElementById('fmt').value;
+    const quality = parseInt(document.getElementById('quality').value, 10) / 100;
+    const ext = fmt === 'image/png' ? 'png' : (fmt === 'image/webp' ? 'webp' : 'jpg');
+    workCanvas.toBlob(blob => {
+      if (!blob){ toast('Could not export this format on this browser', 'error'); return; }
+      const base = (currentFile.name || 'image').replace(/\.[^.]+$/, '');
+      downloadBlob(blob, `${base}-edited.${ext}`);
+    }, fmt, fmt === 'image/png' ? undefined : quality);
+  });
+</script>
+</body>
+</html>

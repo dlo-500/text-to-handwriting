@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word to PDF | Arzi Lab</title>
+<meta name="description" content="Convert a Word .docx file to PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Word to PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Word to PDF</h1>
+  <p class="lab-sub">Turn a .docx file into a PDF, keeping headings, paragraphs, lists, basic tables and images.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept=".docx">
+      <div class="dz-title">Drop a .docx file here, or tap to choose</div>
+      <div class="dz-sub">Older .doc files aren't supported — save as .docx first</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field">
+        <label for="pageSize">Page size</label>
+        <select id="pageSize">
+          <option value="a4" selected>A4</option>
+          <option value="letter">US Letter</option>
+        </select>
+      </div>
+      <button class="btn seal" id="runBtn">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">Complex layouts — multi-column sections, text boxes, tracked changes — may not carry over exactly. Check the result before relying on it for a final document.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.12.2/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  function loadFile(file){
+    if (!file.name.toLowerCase().endsWith('.docx')){ toast('Please choose a .docx file', 'error'); return; }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!currentFile){ toast('Choose a .docx file first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Reading document…';
+    setProgress(document.getElementById('progress'), 10);
+
+    const sizeSel = document.getElementById('pageSize').value;
+    const pagePts = sizeSel === 'a4' ? [595.28, 841.89] : [612, 792];
+    const RENDER_WIDTH = 794;
+    const scale = 2;
+    let iframe = null;
+
+    try {
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      const bodyHtml = result.value;
+
+      iframe = document.createElement('iframe');
+      iframe.style.cssText = `position:absolute; left:-99999px; top:0; width:${RENDER_WIDTH}px; border:0;`;
+      document.body.appendChild(iframe);
+      iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+          body{ margin:0; padding:36px; font-family:'Georgia',serif; font-size:14px; line-height:1.5; color:#161616; background:#fff; }
+          h1,h2,h3{ font-family:'Georgia',serif; }
+          table{ border-collapse:collapse; width:100%; margin:.6em 0; }
+          td,th{ border:1px solid #999; padding:4px 8px; font-size:13px; }
+          img{ max-width:100%; }
+        </style></head><body>${bodyHtml}</body></html>`;
+
+      document.getElementById('statusLine').textContent = 'Rendering…';
+      setProgress(document.getElementById('progress'), 35);
+      await new Promise((resolve, reject) => { iframe.onload = resolve; iframe.onerror = reject; setTimeout(reject, 10000); });
+      const doc = iframe.contentDocument;
+      const imgs = Array.from(doc.images);
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
+      await new Promise(r => setTimeout(r, 150));
+
+      document.getElementById('statusLine').textContent = 'Capturing…';
+      setProgress(document.getElementById('progress'), 55);
+      const fullCanvas = await html2canvas(doc.body, { width: RENDER_WIDTH, windowWidth: RENDER_WIDTH, scale, backgroundColor: '#ffffff', useCORS: true });
+
+      document.getElementById('statusLine').textContent = 'Paginating…';
+      setProgress(document.getElementById('progress'), 75);
+      const { PDFDocument } = PDFLib;
+      const outDoc = await PDFDocument.create();
+      const [pw, ph] = pagePts;
+      const pagePxHeight = Math.round((ph / pw) * fullCanvas.width);
+
+      let y = 0;
+      while (y < fullCanvas.height){
+        const sliceH = Math.min(pagePxHeight, fullCanvas.height - y);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = fullCanvas.width; sliceCanvas.height = sliceH;
+        sliceCanvas.getContext('2d').drawImage(fullCanvas, 0, y, fullCanvas.width, sliceH, 0, 0, fullCanvas.width, sliceH);
+        const blob = await new Promise(res => sliceCanvas.toBlob(res, 'image/jpeg', 0.92));
+        const jpgBytes = new Uint8Array(await blob.arrayBuffer());
+        const jpg = await outDoc.embedJpg(jpgBytes);
+        const outPage = outDoc.addPage([pw, ph]);
+        const drawH = (sliceH / fullCanvas.width) * pw;
+        outPage.drawImage(jpg, { x: 0, y: ph - drawH, width: pw, height: drawH });
+        y += pagePxHeight;
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'PDF ready';
+      document.getElementById('resultMeta').textContent = `${outDoc.getPageCount()} page${outDoc.getPageCount() === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+      if (result.messages && result.messages.length){ console.warn('mammoth messages:', result.messages); }
+    } catch (e){
+      console.error(e);
+      toast('Could not convert this document', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    if (iframe) iframe.remove();
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.docx$/i, '');
+      downloadBlob(resultBlob, `${base}.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

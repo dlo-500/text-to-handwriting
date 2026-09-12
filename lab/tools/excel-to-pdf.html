@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel to PDF | Arzi Lab</title>
+<meta name="description" content="Convert an Excel spreadsheet into a paginated PDF table, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Excel to PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Excel to PDF</h1>
+  <p class="lab-sub">Turn a spreadsheet into a clean, paginated table PDF — the header row repeats on every page.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.ods">
+      <div class="dz-title">Drop a spreadsheet here, or tap to choose</div>
+      <div class="dz-sub">XLSX, XLS, CSV or ODS</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="row">
+        <div class="field">
+          <label for="sheetSelect">Sheet</label>
+          <select id="sheetSelect"></select>
+        </div>
+        <div class="field">
+          <label for="orientation">Orientation</label>
+          <select id="orientation">
+            <option value="landscape" selected>Landscape</option>
+            <option value="portrait">Portrait</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fontSize">Font size</label>
+          <input type="number" id="fontSize" value="9" min="6" max="14">
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem;">
+        <input type="checkbox" id="firstRowHeader" checked> First row is a header (bold, repeats each page)
+      </label>
+
+      <button class="btn seal" id="runBtn" style="margin-top:.8rem;">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">Very wide sheets get narrow columns to fit the page — cell text that's still too long is truncated with "…" rather than wrapped.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, workbook = null, resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    const bytes = await file.arrayBuffer();
+    try {
+      workbook = XLSX.read(bytes, { type: 'array' });
+    } catch (e){ toast('Could not read this file', 'error'); return; }
+
+    const sel = document.getElementById('sheetSelect');
+    sel.innerHTML = '';
+    workbook.SheetNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+  }
+
+  function truncate(font, text, size, maxWidth){
+    if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+    let out = text;
+    while (out.length > 1 && font.widthOfTextAtSize(out + '…', size) > maxWidth) out = out.slice(0, -1);
+    return out + '…';
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!workbook){ toast('Choose a spreadsheet first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Building table…';
+
+    try {
+      const sheetName = document.getElementById('sheetSelect').value;
+      const ws = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' })
+        .map(r => r.map(c => String(c)));
+      if (rows.length === 0){ toast('This sheet is empty', 'error'); btn.disabled = false; return; }
+
+      const hasHeader = document.getElementById('firstRowHeader').checked;
+      const fontSize = parseFloat(document.getElementById('fontSize').value) || 9;
+      const landscape = document.getElementById('orientation').value === 'landscape';
+      const colCount = Math.max(...rows.map(r => r.length));
+
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const outDoc = await PDFDocument.create();
+      const font = await outDoc.embedFont(StandardFonts.Helvetica);
+      const fontBold = await outDoc.embedFont(StandardFonts.HelveticaBold);
+
+      const A4 = [595.28, 841.89];
+      const [pw, ph] = landscape ? [A4[1], A4[0]] : A4;
+      const margin = 28;
+      const usableW = pw - margin * 2;
+      const rowH = fontSize + 8;
+      const cellPad = 4;
+
+      // column widths: proportional to max content width, clamped
+      const rawWidths = new Array(colCount).fill(0);
+      rows.forEach(r => r.forEach((c, i) => {
+        rawWidths[i] = Math.max(rawWidths[i], Math.min(font.widthOfTextAtSize(c || '', fontSize) + cellPad * 2, 220));
+      }));
+      const totalRaw = rawWidths.reduce((a, b) => a + Math.max(b, 40), 0) || 1;
+      const colWidths = rawWidths.map(w => Math.max(w, 40) / totalRaw * usableW);
+
+      function newPage(){
+        const page = outDoc.addPage([pw, ph]);
+        return page;
+      }
+      function drawRow(page, y, cells, bold){
+        let x = margin;
+        cells.forEach((text, i) => {
+          const w = colWidths[i] || 40;
+          const t = truncate(bold ? fontBold : font, text || '', fontSize, w - cellPad * 2);
+          page.drawText(t, { x: x + cellPad, y: y - fontSize, size: fontSize, font: bold ? fontBold : font, color: rgb(0.1,0.09,0.08) });
+          x += w;
+        });
+        page.drawLine({ start: { x: margin, y: y - rowH }, end: { x: pw - margin, y: y - rowH }, thickness: 0.5, color: rgb(0.75,0.72,0.63) });
+      }
+
+      let page = newPage();
+      let y = ph - margin;
+      const headerRow = hasHeader ? rows[0] : null;
+      const bodyRows = hasHeader ? rows.slice(1) : rows;
+
+      if (headerRow){ drawRow(page, y, headerRow, true); y -= rowH; }
+
+      bodyRows.forEach((r, idx) => {
+        if (y - rowH < margin){
+          page = newPage();
+          y = ph - margin;
+          if (headerRow){ drawRow(page, y, headerRow, true); y -= rowH; }
+        }
+        drawRow(page, y, r, false);
+        y -= rowH;
+        if (idx % 200 === 0) setProgress(document.getElementById('progress'), Math.round((idx / bodyRows.length) * 90));
+      });
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'PDF ready';
+      document.getElementById('resultMeta').textContent = `${rows.length} rows × ${colCount} columns · ${outDoc.getPageCount()} pages · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not convert this spreadsheet', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'sheet').replace(/\.[^.]+$/, '');
+      downloadBlob(resultBlob, `${base}.pdf`);
+    }
+  });
+</script>
+</body>
+</html>
