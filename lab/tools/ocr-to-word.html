@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCR to Word | Arzi Lab</title>
+<meta name="description" content="Scan a PDF or photo with OCR and download an editable Word document — fully in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .lang-row{ display:flex; gap:.6rem; flex-wrap:wrap; }
+  .lang-chip{
+    border:1px solid var(--paper-line); border-radius:999px; padding:.4rem .9rem; font-size:.85rem;
+    cursor:pointer; background:var(--paper-white); user-select:none;
+  }
+  .lang-chip input{ display:none; }
+  .lang-chip.active{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); font-weight:600; }
+  #previewText{
+    width:100%; min-height:180px; font-family:ui-monospace, monospace; font-size:.85rem;
+    border:1px solid var(--paper-line); border-radius:var(--radius-s); padding:.9rem; margin-top:.8rem;
+    background:var(--paper-white); color:var(--ink);
+  }
+  .hint-box{
+    margin-top:1rem; padding:.85rem 1rem; border-radius:var(--radius-s);
+    background:rgba(122,35,49,.06); border:1px solid rgba(122,35,49,.15);
+    font-size:.84rem; color:var(--ink-soft); line-height:1.45;
+  }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / OCR to Word</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">OCR → Word</h1>
+  <p class="lab-sub">For <strong>scanned PDFs and photos</strong>: recognise text on your device, then download an editable .docx. No upload. First run downloads language data (a few MB) and caches it.</p>
+  <span class="lab-privacy">🔒 100% client-side — Option A privacy path</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf,image/*">
+      <div class="dz-title">Drop a scanned PDF or photo here</div>
+      <div class="dz-sub">PDF or JPG/PNG · one file</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field">
+        <label>Language(s)</label>
+        <div class="lang-row" id="langRow">
+          <label class="lang-chip active"><input type="checkbox" value="eng" checked> English</label>
+          <label class="lang-chip"><input type="checkbox" value="urd"> Urdu</label>
+          <label class="lang-chip"><input type="checkbox" value="hin"> Hindi</label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:.75rem;">
+        <label for="dpiScale">OCR sharpness</label>
+        <select id="dpiScale">
+          <option value="1.5">Fast</option>
+          <option value="2" selected>Balanced</option>
+          <option value="2.5">Sharp (slower)</option>
+        </select>
+      </div>
+      <button class="btn seal" id="runBtn" style="margin-top:1rem;">Recognise &amp; build Word</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <textarea id="previewText" readonly placeholder="Recognised text preview…"></textarea>
+        <div class="btn-row" style="margin-top:.75rem;">
+          <button class="btn" id="downloadBtn">Download .docx</button>
+          <button class="btn" id="copyBtn">Copy text</button>
+        </div>
+      </div>
+
+      <div class="hint-box">
+        <strong>Tip:</strong> For PDFs that already have selectable text, use
+        <a href="pdf-to-word.html">PDF to Word</a> instead — it is faster and does not need OCR.
+        This tool is for scans and photos.
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="../lab-common.js"></script>
+<script src="../../js/core/ocr-pipeline.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  var currentFile = null;
+  var isPdf = false;
+  var resultBlob = null;
+  var lastText = '';
+
+  wireDropzone(document.getElementById('dz'), document.getElementById('fileInput'), {
+    onFiles: function (files) { loadFile(files[0]); }
+  });
+
+  document.querySelectorAll('#langRow input').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      inp.closest('.lang-chip').classList.toggle('active', inp.checked);
+    });
+  });
+
+  function selectedLangs() {
+    return Array.from(document.querySelectorAll('#langRow input:checked')).map(function (i) {
+      return i.value;
+    });
+  }
+
+  function getDocx() {
+    var api = (typeof docx !== 'undefined' && docx) || window.docx;
+    if (!api || !api.Document || !api.Packer) {
+      throw new Error('docx library failed to load — check network / ad-blocker');
+    }
+    return api;
+  }
+
+  async function loadFile(file) {
+    if (!file) return;
+    var name = (file.name || '').toLowerCase();
+    isPdf = file.type === 'application/pdf' || name.endsWith('.pdf');
+    var isImage = (file.type || '').startsWith('image/') ||
+      /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+    if (!isPdf && !isImage) {
+      toast('Choose a PDF or image file', 'error');
+      return;
+    }
+    currentFile = file;
+    resultBlob = null;
+    lastText = '';
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('previewText').value = '';
+    document.getElementById('fileChipHolder').innerHTML = '';
+    var chip = el('div', 'file-chip');
+    chip.innerHTML = '<span class="name">' + file.name + '</span><span class="meta">' +
+      formatBytes(file.size) + (isPdf ? ' · PDF' : ' · Image') + '</span>';
+    document.getElementById('fileChipHolder').appendChild(chip);
+    document.getElementById('options').style.display = '';
+    document.getElementById('statusLine').textContent = '';
+  }
+
+  async function renderPdfPageToCanvas(pdf, pageNum, scale) {
+    var page = await pdf.getPage(pageNum);
+    var base = page.getViewport({ scale: 1 });
+    var s = Math.min(scale, 2000 / base.width);
+    var viewport = page.getViewport({ scale: s });
+    var canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+    return canvas;
+  }
+
+  async function ocrAllPages(worker) {
+    var scale = parseFloat(document.getElementById('dpiScale').value) || 2;
+    var pageTexts = [];
+
+    if (isPdf) {
+      var bytes = await currentFile.arrayBuffer();
+      var pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+      var n = pdf.numPages;
+      for (var i = 1; i <= n; i++) {
+        document.getElementById('statusLine').textContent =
+          'OCR page ' + i + ' / ' + n + '…';
+        var canvas = await renderPdfPageToCanvas(pdf, i, scale);
+        if (window.ArziOcr && ArziOcr.preprocessCanvas) canvas = ArziOcr.preprocessCanvas(canvas);
+        var result = await worker.recognize(canvas);
+        var t = (result.data && result.data.text || '').trim();
+        if (t) pageTexts.push(t);
+        setProgress(document.getElementById('progress'), Math.round((i / n) * 85));
+      }
+    } else {
+      document.getElementById('statusLine').textContent = 'OCR image…';
+      var result = await worker.recognize(currentFile);
+      var t = (result.data && result.data.text || '').trim();
+      if (t) pageTexts.push(t);
+      setProgress(document.getElementById('progress'), 85);
+    }
+    return pageTexts;
+  }
+
+  function textToDocx(api, pageTexts) {
+    var children = [];
+    pageTexts.forEach(function (pageText, idx) {
+      if (idx > 0) {
+        children.push(new api.Paragraph({ children: [], pageBreakBefore: true }));
+      }
+      var paras = pageText.split(/\n+/);
+      paras.forEach(function (line) {
+        var trimmed = line.trim();
+        if (!trimmed) {
+          children.push(new api.Paragraph({ children: [] }));
+          return;
+        }
+        children.push(new api.Paragraph({
+          children: [new api.TextRun({ text: trimmed, size: 22 })],
+          spacing: { after: 120 }
+        }));
+      });
+    });
+    if (!children.length) {
+      children.push(new api.Paragraph({
+        children: [new api.TextRun({
+          text: 'No text was recognised. Try a clearer scan, higher sharpness, or another language.',
+          italics: true
+        })]
+      }));
+    }
+    return new api.Document({ sections: [{ children: children }] });
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async function () {
+    if (!currentFile) { toast('Choose a file first', 'error'); return; }
+    var langs = selectedLangs();
+    if (!langs.length) { toast('Choose at least one language', 'error'); return; }
+
+    var btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    resultBlob = null;
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('statusLine').textContent = 'Loading OCR engine (first run may take a minute)…';
+    setProgress(document.getElementById('progress'), 3);
+
+    var worker = null;
+    try {
+      worker = await Tesseract.createWorker(langs.join('+'), 1, {
+        logger: function (m) {
+          if (m.status === 'recognizing text' && m.progress != null) {
+            document.getElementById('statusLine').textContent =
+              'Recognising… ' + Math.round(m.progress * 100) + '%';
+          }
+        }
+      });
+
+      var pageTexts = await ocrAllPages(worker);
+      await worker.terminate();
+      worker = null;
+
+      lastText = pageTexts.join('\n\n--- page break ---\n\n');
+      var charCount = pageTexts.join('').length;
+
+      document.getElementById('statusLine').textContent = 'Building Word document…';
+      setProgress(document.getElementById('progress'), 90);
+
+      var api = getDocx();
+      var doc = textToDocx(api, pageTexts);
+      var blob = await api.Packer.toBlob(doc);
+      resultBlob = new Blob([blob], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+
+      document.getElementById('previewText').value = lastText || '(no text recognised)';
+      document.getElementById('resultTitle').textContent =
+        charCount > 2 ? 'Word document ready' : 'Little or no text recognised';
+      document.getElementById('resultMeta').textContent =
+        charCount + ' characters · ' + pageTexts.length + ' page block(s) · ' +
+        formatBytes(resultBlob.size);
+      document.getElementById('resultBox').classList.add('show');
+      setProgress(document.getElementById('progress'), 100);
+      document.getElementById('statusLine').textContent = '';
+
+      if (charCount < 3) {
+        toast('Almost no text found — try sharper scan or another language', 'error');
+      } else {
+        toast('OCR complete');
+      }
+    } catch (e) {
+      console.error(e);
+      if (worker) try { await worker.terminate(); } catch (x) {}
+      toast((e && e.message) ? e.message : 'OCR failed — check connection on first language download', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (!resultBlob) return;
+    var base = (currentFile.name || 'scan').replace(/\.[^.]+$/, '');
+    downloadBlob(resultBlob, base + '-ocr.docx');
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    if (!lastText) return;
+    navigator.clipboard.writeText(lastText).then(function () { toast('Copied'); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF to Excel | Arzi Lab</title>
+<meta name="description" content="Extract tabular text from a PDF into an Excel spreadsheet, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / PDF to Excel</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">PDF to Excel</h1>
+  <p class="lab-sub">Reads the text layer and splits lines into columns using gap detection (median-based). Best on PDFs that already look like tables. Scanned pages need OCR first.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time · text-based PDFs work best</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="row">
+        <div class="field">
+          <label for="gapSensitivity">Column gap sensitivity</label>
+          <select id="gapSensitivity">
+            <option value="1.2">Tight (more columns)</option>
+            <option value="1.6" selected>Balanced</option>
+            <option value="2.2">Loose (fewer columns)</option>
+            <option value="3.0">Very loose</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn seal" id="runBtn" style="margin-top:.8rem;">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download .xlsx</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../lab-common.js"></script>
+<script src="../lab-layout.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, pdfDoc = null, resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file) {
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      toast('Please choose a PDF file', 'error');
+      return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+    try {
+      const bytes = await file.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      document.getElementById('options').style.display = '';
+      document.getElementById('resultBox').classList.remove('show');
+    } catch (e) {
+      console.error(e);
+      toast('Could not open this PDF', 'error');
+    }
+  }
+
+  async function pageToRows(pageNum, gapFactor) {
+    const page = await pdfDoc.getPage(pageNum);
+    const content = await page.getTextContent();
+    const items = ArziLayout.normalisePdfItems(content.items);
+    const lines = ArziLayout.clusterLines(items, { lineTolFactor: 0.5 });
+    return lines.map(l => ArziLayout.lineToCells(l.items, gapFactor));
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!pdfDoc) { toast('Choose a PDF first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Reading pages…';
+    const gapFactor = parseFloat(document.getElementById('gapSensitivity').value);
+
+    try {
+      const wb = XLSX.utils.book_new();
+      let totalRows = 0;
+      let maxCols = 0;
+
+      for (let p = 1; p <= pdfDoc.numPages; p++) {
+        const rows = await pageToRows(p, gapFactor);
+        // normalise column count across rows on this page
+        const colCount = rows.reduce((m, r) => Math.max(m, r.length), 0);
+        maxCols = Math.max(maxCols, colCount);
+        const normalised = rows.map(r => {
+          const copy = r.slice();
+          while (copy.length < colCount) copy.push('');
+          return copy;
+        });
+        totalRows += normalised.length;
+        const ws = XLSX.utils.aoa_to_sheet(normalised.length ? normalised : [['']]);
+        // rough column widths
+        if (colCount > 0) {
+          ws['!cols'] = Array.from({ length: colCount }, () => ({ wch: 16 }));
+        }
+        const name = pdfDoc.numPages === 1 ? 'Sheet1' : ('Page ' + p);
+        XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+        setProgress(document.getElementById('progress'), Math.round((p / pdfDoc.numPages) * 90));
+        document.getElementById('statusLine').textContent =
+          'Page ' + p + ' / ' + pdfDoc.numPages + '…';
+      }
+
+      const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      resultBlob = new Blob([out], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      setProgress(document.getElementById('progress'), 100);
+      document.getElementById('resultTitle').textContent = 'Spreadsheet ready';
+      document.getElementById('resultMeta').textContent =
+        pdfDoc.numPages + ' sheet' + (pdfDoc.numPages === 1 ? '' : 's') +
+        ' · ' + totalRows + ' rows · up to ' + maxCols + ' columns · ' + formatBytes(resultBlob.size);
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e) {
+      console.error(e);
+      toast('Could not convert this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob) {
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, base + '.xlsx');
+    }
+  });
+</script>
+</body>
+</html>

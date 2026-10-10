@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML to PDF | Arzi Lab</title>
+<meta name="description" content="Convert HTML you paste or upload into a PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  #htmlInput{ width:100%; min-height:220px; font-family:'JetBrains Mono', monospace; font-size:.82rem; border:1px solid var(--paper-line); border-radius:var(--radius-s); padding:.9rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / HTML to PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">HTML to PDF</h1>
+  <p class="lab-sub">Paste HTML or upload an .html file to turn it into a paginated PDF.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded. Browsers won't let a page fetch an arbitrary external URL from JavaScript, so this works from HTML you already have, not a link.</span>
+
+  <div class="bench">
+    <div class="radio-group">
+      <label class="radio-pill active"><input type="radio" name="mode" value="paste" checked>Paste HTML</label>
+      <label class="radio-pill"><input type="radio" name="mode" value="upload">Upload a file</label>
+    </div>
+
+    <div id="pasteMode" style="margin-top:1rem;">
+      <textarea id="htmlInput" placeholder="<h1>Hello</h1>&#10;<p>Paste any HTML here…</p>"></textarea>
+    </div>
+    <div id="uploadMode" style="display:none; margin-top:1rem;">
+      <div class="dropzone" id="dz" tabindex="0">
+        <input type="file" id="fileInput" accept=".html,.htm,text/html">
+        <div class="dz-title">Drop an .html file here, or tap to choose</div>
+      </div>
+      <div id="fileChipHolder"></div>
+    </div>
+
+    <div class="row" style="margin-top:1rem;">
+      <div class="field">
+        <label for="pageSize">Page size</label>
+        <select id="pageSize">
+          <option value="a4" selected>A4</option>
+          <option value="letter">US Letter</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn seal" id="runBtn">Convert</button>
+    <div class="progress" id="progress"><i></i></div>
+    <div class="status-line" id="statusLine"></div>
+    <div class="result" id="resultBox">
+      <div class="r-title" id="resultTitle"></div>
+      <div class="r-meta" id="resultMeta"></div>
+      <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+    </div>
+  </div>
+
+  <p class="lab-note">Long content is sliced across pages by height, so a page break can occasionally fall in the middle of a line — check the result before relying on it for print.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  document.querySelectorAll('input[name=mode]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      document.querySelectorAll('input[name=mode]').forEach(i => i.closest('.radio-pill').classList.toggle('active', i.checked));
+      const mode = document.querySelector('input[name=mode]:checked').value;
+      document.getElementById('pasteMode').style.display = mode === 'paste' ? '' : 'none';
+      document.getElementById('uploadMode').style.display = mode === 'upload' ? '' : 'none';
+    });
+  });
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let uploadedHtml = null, uploadedName = null;
+  wireDropzone(dz, fileInput, { onFiles: (files) => {
+    const file = files[0];
+    uploadedName = file.name;
+    const holder = document.getElementById('fileChipHolder');
+    holder.innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    holder.appendChild(chip);
+    const reader = new FileReader();
+    reader.onload = () => { uploadedHtml = reader.result; };
+    reader.readAsText(file);
+  }});
+
+  let resultBlob = null;
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    const html = mode === 'paste' ? document.getElementById('htmlInput').value : uploadedHtml;
+    if (!html || !html.trim()){ toast('Add some HTML first', 'error'); return; }
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Rendering…';
+    setProgress(document.getElementById('progress'), 15);
+
+    const sizeSel = document.getElementById('pageSize').value;
+    const pagePts = sizeSel === 'a4' ? [595.28, 841.89] : [612, 792];
+    const RENDER_WIDTH = 794; // ~ A4 width at 96dpi
+    const scale = 2;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `position:absolute; left:-99999px; top:0; width:${RENDER_WIDTH}px; border:0;`;
+    document.body.appendChild(iframe);
+
+    const looksFullDoc = /<html[\s>]/i.test(html);
+    iframe.srcdoc = looksFullDoc ? html : `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>body{margin:0;padding:24px;font-family:Georgia,serif;color:#111;background:#fff;}
+      table{border-collapse:collapse;} td,th{border:1px solid #999;padding:4px 8px;}</style>
+      </head><body>${html}</body></html>`;
+
+    try {
+      await new Promise((resolve, reject) => {
+        iframe.onload = resolve;
+        iframe.onerror = reject;
+        setTimeout(reject, 10000);
+      });
+      const doc = iframe.contentDocument;
+      const imgs = Array.from(doc.images);
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
+      await new Promise(r => setTimeout(r, 150));
+
+      document.getElementById('statusLine').textContent = 'Capturing…';
+      setProgress(document.getElementById('progress'), 45);
+      const fullCanvas = await html2canvas(doc.body, {
+        width: RENDER_WIDTH, windowWidth: RENDER_WIDTH, scale, backgroundColor: '#ffffff', useCORS: true
+      });
+
+      document.getElementById('statusLine').textContent = 'Paginating…';
+      setProgress(document.getElementById('progress'), 70);
+
+      const { PDFDocument } = PDFLib;
+      const outDoc = await PDFDocument.create();
+      const [pw, ph] = pagePts;
+      const pagePxHeight = Math.round((ph / pw) * fullCanvas.width);
+
+      let y = 0;
+      while (y < fullCanvas.height){
+        const sliceH = Math.min(pagePxHeight, fullCanvas.height - y);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = fullCanvas.width; sliceCanvas.height = sliceH;
+        sliceCanvas.getContext('2d').drawImage(fullCanvas, 0, y, fullCanvas.width, sliceH, 0, 0, fullCanvas.width, sliceH);
+        const blob = await new Promise(res => sliceCanvas.toBlob(res, 'image/jpeg', 0.92));
+        const jpgBytes = new Uint8Array(await blob.arrayBuffer());
+        const jpg = await outDoc.embedJpg(jpgBytes);
+        const outPage = outDoc.addPage([pw, ph]);
+        const drawH = (sliceH / fullCanvas.width) * pw;
+        outPage.drawImage(jpg, { x: 0, y: ph - drawH, width: pw, height: drawH });
+        y += pagePxHeight;
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'PDF ready';
+      document.getElementById('resultMeta').textContent = `${outDoc.getPageCount()} page${outDoc.getPageCount() === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not render this HTML', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    iframe.remove();
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (uploadedName || 'page').replace(/\.[^.]+$/, '');
+      downloadBlob(resultBlob, `${base}.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

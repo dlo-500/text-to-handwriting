@@ -1,0 +1,204 @@
+/**
+ * Arzi — Realism & Paper Upgrade Styles
+ * ------------------------------------------------
+ * Include after your existing editor styles (or paste into the <style> block).
+ * Works with the classes toggled by arzi-realism.js.
+ */
+
+/* ---------- Live preview (typing-friendly, subtle) ---------- */
+.ql-editor.arzi-ink-live {
+  font-weight: var(--arzi-ink-weight, 450);
+  letter-spacing: calc(var(--arzi-ink-tracking, 0px) + 0px);
+  transform: rotate(var(--arzi-ink-tilt, 0deg));
+  transform-origin: center top;
+  transition: font-weight 0.2s ease, letter-spacing 0.2s ease;
+}
+
+/* ---------- Export / full realism ---------- */
+.arzi-word {
+  /* word spans created by the noise engine */
+  will-change: transform, opacity;
+}
+
+.arzi-line {
+  will-change: transform, opacity;
+}
+
+.arzi-export-realism .arzi-word {
+  /* slightly stronger ink feel on the final image */
+  text-shadow: 0 0 0.3px currentColor;
+}
+
+/* ---------- Ink bleed (simulates paper absorption) ---------- */
+.arzi-ink-bleed .ql-editor,
+.arzi-ink-bleed.arzi-export-realism,
+.arzi-export-realism.arzi-ink-bleed {
+  -webkit-font-smoothing: auto;
+  text-shadow:
+    0.2px 0 0.4px currentColor,
+    -0.15px 0.1px 0.35px currentColor,
+    0 -0.1px 0.3px currentColor;
+}
+
+.arzi-ink-bleed .arzi-word {
+  text-shadow:
+    0.25px 0 0.45px currentColor,
+    -0.2px 0.15px 0.4px currentColor;
+}
+
+/* ---------- Pressure simulation (opacity variation already on spans) ---------- */
+.arzi-ink-pressure .ql-editor {
+  /* base pressure curve */
+  opacity: 0.96;
+}
+
+/* ---------- Paper textures (extend existing ones) ---------- */
+.editor-canvas-wrapper.paper-ivory,
+.paper-ivory {
+  background-color: #faf6ee !important;
+  background-image:
+    radial-gradient(ellipse at 20% 30%, rgba(210, 180, 140, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(180, 150, 110, 0.06) 0%, transparent 45%);
+}
+
+.editor-canvas-wrapper.paper-parchment,
+.paper-parchment {
+  background-color: #f3ebd8 !important;
+  background-image:
+    repeating-linear-gradient(
+      0.5deg,
+      transparent,
+      transparent 2px,
+      rgba(120, 90, 50, 0.02) 2px,
+      rgba(120, 90, 50, 0.02) 3px
+    ),
+    radial-gradient(ellipse at 40% 20%, rgba(160, 120, 70, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 70% 80%, rgba(100, 70, 40, 0.05) 0%, transparent 50%);
+}
+
+.editor-canvas-wrapper.paper-scanner,
+.paper-scanner {
+  background-color: #f7f5f0 !important;
+  background-image:
+    /* subtle scan lines */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0, 0, 0, 0.015) 3px,
+      rgba(0, 0, 0, 0.015) 4px
+    ),
+    /* corner vignette */
+    radial-gradient(ellipse at center, transparent 55%, rgba(40, 30, 20, 0.06) 100%);
+}
+
+/* New: aged / coffee-stain optional texture */
+.editor-canvas-wrapper.paper-aged,
+.paper-aged {
+  background-color: #f2eadc !important;
+  background-image:
+    radial-gradient(circle at 15% 25%, rgba(140, 90, 40, 0.09) 0%, transparent 28%),
+    radial-gradient(circle at 85% 60%, rgba(100, 60, 30, 0.07) 0%, transparent 22%),
+    radial-gradient(circle at 40% 90%, rgba(120, 80, 40, 0.05) 0%, transparent 30%),
+    repeating-linear-gradient(
+      -1deg,
+      transparent,
+      transparent 4px,
+      rgba(90, 60, 30, 0.015) 4px,
+      rgba(90, 60, 30, 0.015) 5px
+    );
+}
+
+/* New: blue-ruled notebook */
+.editor-canvas-wrapper.paper-notebook,
+.paper-notebook {
+  background-color: #fafbfd !important;
+}
+
+/* ---------- Realism controls row (toolbar) ---------- */
+.arzi-realism-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-soft, #636b78);
+}
+
+.arzi-realism-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.arzi-realism-controls input[type="range"] {
+  width: 90px;
+  height: 4px;
+  accent-color: var(--maroon-theme, #7a2331);
+  cursor: pointer;
+}
+
+.arzi-realism-controls .intensity-val {
+  min-width: 32px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--maroon-theme, #7a2331);
+}
+
+.arzi-realism-controls button.reseed-btn {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #dcd6c8);
+  background: var(--bg-card, #fff);
+  color: var(--text-color, #23283a);
+  cursor: pointer;
+}
+
+.arzi-realism-controls button.reseed-btn:hover {
+  border-color: var(--maroon-theme, #7a2331);
+}
+
+/* When realism is on, show a small badge on the status bar */
+.status-bar .arzi-realism-badge {
+  display: none;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--maroon-theme, #7a2331);
+  background: rgba(122, 35, 49, 0.08);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.arzi-realism-on ~ .status-bar .arzi-realism-badge,
+.editor-canvas-wrapper.arzi-realism-on + .status-bar .arzi-realism-badge {
+  display: inline-block;
+}
+
+/* ---------- Print / export safety ---------- */
+@media print {
+  .arzi-word,
+  .arzi-line {
+    /* keep transforms for print if browser supports them */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* ---------- Dark mode tweaks ---------- */
+body.dark-mode .arzi-ink-bleed .ql-editor,
+body.dark-mode .arzi-ink-bleed .arzi-word {
+  text-shadow:
+    0.2px 0 0.4px rgba(255, 255, 255, 0.15),
+    -0.15px 0.1px 0.3px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode .editor-canvas-wrapper.paper-ivory,
+body.dark-mode .editor-canvas-wrapper.paper-parchment,
+body.dark-mode .editor-canvas-wrapper.paper-aged {
+  /* keep paper warm even in dark UI */
+  filter: none;
+}

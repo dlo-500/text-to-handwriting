@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Convert | Arzi Lab</title>
+<meta name="description" content="Drop any document — Arzi detects text vs scan and routes to the best private converter.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .route-card{
+    margin-top:1.1rem; padding:1rem 1.15rem; border-radius:var(--radius-s);
+    border:1px solid var(--paper-line); background:var(--paper-white);
+  }
+  .route-card .r-kind{ font-weight:600; font-size:1.05rem; color:var(--ink); }
+  .route-card .r-hint{ margin-top:.35rem; font-size:.88rem; color:var(--ink-soft); line-height:1.45; }
+  .route-actions{ display:flex; flex-wrap:wrap; gap:.55rem; margin-top:.9rem; }
+  .badge{
+    display:inline-block; font-size:.72rem; font-weight:600; letter-spacing:.03em;
+    padding:.2rem .55rem; border-radius:999px; background:var(--seal-dim); color:var(--seal);
+  }
+  .badge.warn{ background:rgba(180,120,20,.12); color:#8a5a00; }
+  .badge.ok{ background:rgba(30,120,60,.1); color:#1a6b38; }
+  #previewText{
+    width:100%; min-height:160px; font-family:ui-monospace,monospace; font-size:.84rem;
+    border:1px solid var(--paper-line); border-radius:var(--radius-s); padding:.85rem; margin-top:.75rem;
+  }
+  .lang-row{ display:flex; gap:.55rem; flex-wrap:wrap; margin-top:.5rem; }
+  .lang-chip{
+    border:1px solid var(--paper-line); border-radius:999px; padding:.35rem .8rem; font-size:.82rem;
+    cursor:pointer; background:var(--paper-white); user-select:none;
+  }
+  .lang-chip input{ display:none; }
+  .lang-chip.active{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); font-weight:600; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Smart Convert</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Smart Convert</h1>
+  <p class="lab-sub">One drop zone. Arzi probes the file (text layer vs scan), then runs the <strong>best private path</strong> — nothing is uploaded.</p>
+  <span class="lab-privacy">🔒 100% on your device</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf,image/*,.docx,.xlsx,.html,.txt">
+      <div class="dz-title">Drop a PDF, photo, Word, or Excel file</div>
+      <div class="dz-sub">Auto-detect · text PDFs extract fast · scans use OCR</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="routeBox" class="route-card" style="display:none;">
+      <span class="badge" id="routeBadge">…</span>
+      <div class="r-kind" id="routeKind" style="margin-top:.5rem;"></div>
+      <div class="r-hint" id="routeHint"></div>
+      <div id="ocrOpts" style="display:none; margin-top:.85rem;">
+        <label style="font-size:.85rem; font-weight:500;">OCR languages</label>
+        <div class="lang-row" id="langRow">
+          <label class="lang-chip active"><input type="checkbox" value="eng" checked> English</label>
+          <label class="lang-chip"><input type="checkbox" value="urd"> Urdu</label>
+          <label class="lang-chip"><input type="checkbox" value="hin"> Hindi</label>
+        </div>
+      </div>
+      <div class="route-actions">
+        <button class="btn seal" id="runBtn">Convert</button>
+        <a class="btn" id="manualLink" href="#" style="text-decoration:none;">Open specialized tool →</a>
+      </div>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+    </div>
+
+    <div class="result" id="resultBox">
+      <div class="r-title" id="resultTitle"></div>
+      <div class="r-meta" id="resultMeta"></div>
+      <textarea id="previewText" readonly style="display:none;"></textarea>
+      <div class="btn-row"><button class="btn" id="downloadBtn">Download</button></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="../lab-common.js"></script>
+<script src="../lab-layout.js"></script>
+<script src="../../js/core/file-classify.js"></script>
+<script src="../../js/core/docx-build.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  var currentFile = null;
+  var classification = null;
+  var resultBlob = null;
+  var resultName = 'output.bin';
+  var previewText = '';
+
+  var toolMap = {
+    'pdf-to-word': 'pdf-to-word.html',
+    'ocr-to-word': 'ocr-to-word.html',
+    'word-to-pdf': 'word-to-pdf.html',
+    'excel-to-pdf': 'excel-to-pdf.html',
+    'html-to-pdf': 'html-to-pdf.html'
+  };
+
+  wireDropzone(document.getElementById('dz'), document.getElementById('fileInput'), {
+    onFiles: function (files) { onFile(files[0]); }
+  });
+
+  document.querySelectorAll('#langRow input').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      inp.closest('.lang-chip').classList.toggle('active', inp.checked);
+    });
+  });
+
+  function selectedLangs() {
+    return Array.from(document.querySelectorAll('#langRow input:checked')).map(function (i) {
+      return i.value;
+    });
+  }
+
+  async function onFile(file) {
+    if (!file) return;
+    currentFile = file;
+    resultBlob = null;
+    previewText = '';
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('previewText').style.display = 'none';
+    document.getElementById('fileChipHolder').innerHTML = '';
+    var chip = el('div', 'file-chip');
+    chip.innerHTML = '<span class="name">' + file.name + '</span><span class="meta">' + formatBytes(file.size) + '</span>';
+    document.getElementById('fileChipHolder').appendChild(chip);
+    document.getElementById('statusLine').textContent = 'Analysing file…';
+    document.getElementById('routeBox').style.display = '';
+
+    try {
+      classification = await ArziClassify.classify(file);
+      var badge = document.getElementById('routeBadge');
+      badge.textContent = (classification.route || 'unknown').replace(/-/g, ' → ');
+      badge.className = 'badge ' + (classification.layer === 'scan' || classification.layer === 'mixed' ? 'warn' : 'ok');
+      document.getElementById('routeKind').textContent = classification.label;
+      document.getElementById('routeHint').textContent = classification.hint;
+      document.getElementById('ocrOpts').style.display =
+        classification.route === 'ocr-to-word' ? '' : 'none';
+      var man = document.getElementById('manualLink');
+      var href = toolMap[classification.route] || '../lab.html';
+      man.href = href;
+      document.getElementById('statusLine').textContent = '';
+      document.getElementById('runBtn').disabled = classification.route === 'unknown';
+    } catch (e) {
+      console.error(e);
+      toast(e.message || 'Could not analyse file', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+  }
+
+  async function extractPdfTextLines(pdf) {
+    var all = [];
+    var totalChars = 0;
+    for (var p = 1; p <= pdf.numPages; p++) {
+      var page = await pdf.getPage(p);
+      var content = await page.getTextContent();
+      var lines;
+      if (window.ArziLayout && ArziLayout.normalisePdfItems) {
+        lines = ArziLayout.clusterLines(ArziLayout.normalisePdfItems(content.items), { lineTolFactor: 0.55 });
+      } else {
+        lines = (content.items || [])
+          .filter(function (it) { return it.str && it.str.trim(); })
+          .map(function (it) {
+            var t = it.transform || [1, 0, 0, 1, 0, 0];
+            return { str: it.str, x: t[4], y: t[5], size: Math.hypot(t[2], t[3]) || 10, width: it.width || 0 };
+          });
+        lines = (window.ArziLayout && ArziLayout.clusterLines)
+          ? ArziLayout.clusterLines(lines)
+          : lines.map(function (i) { return { text: i.str, size: i.size }; });
+      }
+      lines.forEach(function (l) {
+        all.push(l);
+        totalChars += (l.text || '').length;
+      });
+      if (p < pdf.numPages) all.push({ pageBreak: true });
+      setProgress(document.getElementById('progress'), Math.round((p / pdf.numPages) * 70));
+      document.getElementById('statusLine').textContent = 'Reading page ' + p + ' / ' + pdf.numPages;
+    }
+    return { lines: all, totalChars: totalChars };
+  }
+
+  async function runTextPdfToWord() {
+    var bytes = await currentFile.arrayBuffer();
+    var pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    var extracted = await extractPdfTextLines(pdf);
+    if (extracted.totalChars < 3) {
+      resultBlob = await ArziDocx.emptyExplainBlob(
+        'No extractable text found',
+        'This PDF has no usable text layer. Use OCR mode (Smart Convert will route scans there automatically).'
+      );
+      resultName = currentFile.name.replace(/\.pdf$/i, '') + '-empty.docx';
+      previewText = '';
+      return { chars: 0, note: 'No text layer' };
+    }
+    var sizes = extracted.lines.filter(function (l) { return l.size; }).map(function (l) { return l.size; });
+    var bodySize = sizes.length && window.ArziLayout
+      ? ArziLayout.median(sizes)
+      : 11;
+    var children = ArziDocx.paragraphsFromLayoutLines(extracted.lines, bodySize);
+    resultBlob = await ArziDocx.toBlob(children);
+    resultName = currentFile.name.replace(/\.pdf$/i, '') + '.docx';
+    previewText = extracted.lines
+      .filter(function (l) { return !l.pageBreak; })
+      .map(function (l) { return l.text; })
+      .join('\n');
+    return { chars: extracted.totalChars, note: children.length + ' blocks' };
+  }
+
+  async function renderPdfPage(pdf, pageNum, scale) {
+    var page = await pdf.getPage(pageNum);
+    var base = page.getViewport({ scale: 1 });
+    var s = Math.min(scale, 2000 / base.width);
+    var viewport = page.getViewport({ scale: s });
+    var canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+    return canvas;
+  }
+
+  async function runOcrToWord() {
+    var langs = selectedLangs();
+    if (!langs.length) throw new Error('Choose at least one OCR language');
+    document.getElementById('statusLine').textContent = 'Loading OCR engine…';
+    var worker = await Tesseract.createWorker(langs.join('+'), 1, {
+      logger: function (m) {
+        if (m.status === 'recognizing text' && m.progress != null) {
+          document.getElementById('statusLine').textContent =
+            'Recognising… ' + Math.round(m.progress * 100) + '%';
+        }
+      }
+    });
+
+    var pageTexts = [];
+    var kind = ArziClassify.kindFromFile(currentFile);
+
+    try {
+      if (kind === 'pdf') {
+        var bytes = await currentFile.arrayBuffer();
+        var pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+        var n = pdf.numPages;
+        for (var i = 1; i <= n; i++) {
+          document.getElementById('statusLine').textContent = 'OCR page ' + i + ' / ' + n;
+          var canvas = await renderPdfPage(pdf, i, 2);
+          var rec = await worker.recognize(canvas);
+          var t = (rec.data && rec.data.text || '').trim();
+          if (t) pageTexts.push(t);
+          setProgress(document.getElementById('progress'), Math.round((i / n) * 85));
+        }
+      } else {
+        document.getElementById('statusLine').textContent = 'OCR image…';
+        var rec = await worker.recognize(currentFile);
+        var t = (rec.data && rec.data.text || '').trim();
+        if (t) pageTexts.push(t);
+        setProgress(document.getElementById('progress'), 85);
+      }
+    } finally {
+      await worker.terminate();
+    }
+
+    var charCount = pageTexts.join('').length;
+    document.getElementById('statusLine').textContent = 'Building Word…';
+    var children = ArziDocx.paragraphsFromBlocks(pageTexts, { pageBreaks: true });
+    resultBlob = await ArziDocx.toBlob(children);
+    resultName = (currentFile.name || 'scan').replace(/\.[^.]+$/, '') + '-ocr.docx';
+    previewText = pageTexts.join('\n\n--- page ---\n\n');
+    return { chars: charCount, note: pageTexts.length + ' page block(s)' };
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async function () {
+    if (!currentFile || !classification) return;
+    var btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    resultBlob = null;
+    document.getElementById('resultBox').classList.remove('show');
+    setProgress(document.getElementById('progress'), 5);
+
+    try {
+      var route = classification.route;
+      var meta;
+
+      if (route === 'pdf-to-word') {
+        meta = await runTextPdfToWord();
+      } else if (route === 'ocr-to-word') {
+        meta = await runOcrToWord();
+      } else {
+        // Hand off to specialized tool for word/excel/html paths
+        window.location.href = toolMap[route] || '../lab.html';
+        return;
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      document.getElementById('resultTitle').textContent =
+        meta.chars > 2 ? 'Ready' : 'Little text found';
+      document.getElementById('resultMeta').textContent =
+        (meta.chars || 0) + ' characters · ' + (meta.note || '') + ' · ' + formatBytes(resultBlob.size);
+      if (previewText) {
+        document.getElementById('previewText').style.display = '';
+        document.getElementById('previewText').value = previewText;
+      }
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+      if (meta.chars < 3) toast('Almost no text — try another language or sharper scan', 'error');
+      else toast('Conversion complete');
+    } catch (e) {
+      console.error(e);
+      toast(e.message || 'Conversion failed', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (resultBlob) downloadBlob(resultBlob, resultName);
+  });
+})();
+</script>
+</body>
+</html>

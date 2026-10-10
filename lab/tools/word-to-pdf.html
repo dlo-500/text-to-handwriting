@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word to PDF | Arzi Lab</title>
+<meta name="description" content="Convert a Word .docx file to PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Word to PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Word to PDF</h1>
+  <p class="lab-sub">Turn a .docx into a PDF. Headings, paragraphs, lists, basic tables and images are kept. Complex floating layouts are approximated (client-side limit).</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <div class="dz-title">Drop a .docx file here, or tap to choose</div>
+      <div class="dz-sub">Older .doc files aren't supported — save as .docx first</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field">
+        <label for="pageSize">Page size</label>
+        <select id="pageSize">
+          <option value="a4" selected>A4</option>
+          <option value="letter">Letter</option>
+        </select>
+      </div>
+      <button class="btn seal" id="runBtn" style="margin-top:1rem;">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.12.2/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var currentFile = null;
+  var resultBlob = null;
+
+  wireDropzone(document.getElementById('dz'), document.getElementById('fileInput'), {
+    onFiles: function (files) { loadFile(files[0]); }
+  });
+
+  function loadFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith('.docx')) {
+      toast('Please choose a .docx file', 'error');
+      return;
+    }
+    currentFile = file;
+    resultBlob = null;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    var chip = el('div', 'file-chip');
+    chip.innerHTML = '<span class="name">' + file.name + '</span><span class="meta">' + formatBytes(file.size) + '</span>';
+    document.getElementById('fileChipHolder').appendChild(chip);
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+  }
+
+  function waitForImages(doc, timeoutMs) {
+    var imgs = Array.prototype.slice.call(doc.images || []);
+    if (!imgs.length) return Promise.resolve();
+    return Promise.race([
+      Promise.all(imgs.map(function (img) {
+        if (img.complete && img.naturalWidth) return Promise.resolve();
+        return new Promise(function (res) {
+          img.onload = img.onerror = function () { res(); };
+        });
+      })),
+      new Promise(function (res) { setTimeout(res, timeoutMs || 8000); })
+    ]);
+  }
+
+  function waitFonts(doc) {
+    try {
+      if (doc.fonts && doc.fonts.ready) return doc.fonts.ready;
+    } catch (e) {}
+    return Promise.resolve();
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async function () {
+    if (!currentFile) { toast('Choose a .docx file first', 'error'); return; }
+    var btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Reading document…';
+    setProgress(document.getElementById('progress'), 10);
+
+    var sizeSel = document.getElementById('pageSize').value;
+    var pagePts = sizeSel === 'a4' ? [595.28, 841.89] : [612, 792];
+    var RENDER_WIDTH = 794;
+    var scale = 2;
+    var iframe = null;
+
+    try {
+      var arrayBuffer = await currentFile.arrayBuffer();
+      var result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+      if (!result || !result.value || !String(result.value).trim()) {
+        throw new Error('No content extracted from this .docx (empty or unsupported)');
+      }
+      var bodyHtml = result.value;
+
+      iframe = document.createElement('iframe');
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.cssText = 'position:absolute;left:-99999px;top:0;width:' + RENDER_WIDTH + 'px;border:0;';
+      document.body.appendChild(iframe);
+
+      await new Promise(function (resolve, reject) {
+        var to = setTimeout(function () { reject(new Error('Render iframe timed out')); }, 20000);
+        iframe.onload = function () { clearTimeout(to); resolve(); };
+        iframe.onerror = function () { clearTimeout(to); reject(new Error('iframe load failed')); };
+        iframe.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' +
+          'body{margin:0;padding:36px;font-family:Georgia,serif;font-size:14px;line-height:1.5;color:#161616;background:#fff;}' +
+          'h1,h2,h3{font-family:Georgia,serif;}' +
+          'table{border-collapse:collapse;width:100%;margin:.6em 0;}' +
+          'td,th{border:1px solid #999;padding:4px 8px;font-size:13px;}' +
+          'img{max-width:100%;}' +
+          '</style></head><body>' + bodyHtml + '</body></html>';
+      });
+
+      var doc = iframe.contentDocument;
+      if (!doc || !doc.body) throw new Error('Could not render Word HTML');
+
+      document.getElementById('statusLine').textContent = 'Loading images & fonts…';
+      setProgress(document.getElementById('progress'), 40);
+      await waitForImages(doc, 10000);
+      await waitFonts(doc);
+      // allow layout settle
+      await new Promise(function (r) { setTimeout(r, 50); });
+
+      document.getElementById('statusLine').textContent = 'Rendering pages…';
+      setProgress(document.getElementById('progress'), 55);
+      var fullCanvas = await html2canvas(doc.body, {
+        width: RENDER_WIDTH,
+        windowWidth: RENDER_WIDTH,
+        scale: scale,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      if (!fullCanvas.width || !fullCanvas.height) {
+        throw new Error('Render produced an empty canvas — try a simpler document');
+      }
+
+      document.getElementById('statusLine').textContent = 'Building PDF…';
+      setProgress(document.getElementById('progress'), 75);
+      var PDFDocument = PDFLib.PDFDocument;
+      var outDoc = await PDFDocument.create();
+      var pw = pagePts[0], ph = pagePts[1];
+      var pagePxHeight = Math.round((ph / pw) * fullCanvas.width);
+
+      var y = 0;
+      while (y < fullCanvas.height) {
+        var sliceH = Math.min(pagePxHeight, fullCanvas.height - y);
+        var sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = fullCanvas.width;
+        sliceCanvas.height = sliceH;
+        sliceCanvas.getContext('2d').drawImage(
+          fullCanvas, 0, y, fullCanvas.width, sliceH, 0, 0, fullCanvas.width, sliceH
+        );
+        var blob = await new Promise(function (res) {
+          sliceCanvas.toBlob(res, 'image/jpeg', 0.92);
+        });
+        if (!blob) throw new Error('Failed to encode page image');
+        var jpgBytes = new Uint8Array(await blob.arrayBuffer());
+        var jpg = await outDoc.embedJpg(jpgBytes);
+        var outPage = outDoc.addPage([pw, ph]);
+        var drawH = (sliceH / fullCanvas.width) * pw;
+        outPage.drawImage(jpg, { x: 0, y: ph - drawH, width: pw, height: drawH });
+        y += pagePxHeight;
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      var outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'PDF ready';
+      document.getElementById('resultMeta').textContent =
+        outDoc.getPageCount() + ' page' + (outDoc.getPageCount() === 1 ? '' : 's') +
+        ' · ' + formatBytes(resultBlob.size);
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+      if (result.messages && result.messages.length) {
+        console.warn('mammoth messages:', result.messages);
+      }
+    } catch (e) {
+      console.error(e);
+      toast((e && e.message) ? e.message : 'Could not convert this document', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (!resultBlob) return;
+    var base = (currentFile.name || 'document').replace(/\.docx$/i, '');
+    downloadBlob(resultBlob, base + '.pdf');
+  });
+})();
+</script>
+</body>
+</html>

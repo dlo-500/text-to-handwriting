@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF to Word | Arzi Lab</title>
+<meta name="description" content="Pull the text out of a PDF into an editable Word document, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / PDF to Word</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">PDF to Word</h1>
+  <p class="lab-sub">Extracts the <strong>text layer</strong> of a PDF into an editable .docx. Works on text-based PDFs. Scanned image PDFs have no text layer — use <a href="ocr-to-word.html">OCR → Word</a> (or <a href="ocr.html">OCR</a>) first, or you will get an almost empty file.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">Text PDFs only · scanned pages need OCR first</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field" id="pageCountLine" style="color:var(--ink-soft); font-size:.85rem; margin-bottom:.6rem;"></div>
+      <button class="btn seal" id="runBtn">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download .docx</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="../lab-common.js"></script>
+<script src="../lab-layout.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  var dz = document.getElementById('dz');
+  var fileInput = document.getElementById('fileInput');
+  var currentFile = null;
+  var pdfDoc = null;
+  var resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: function (files) { loadFile(files[0]); } });
+
+  function getDocx() {
+    var api = (typeof docx !== 'undefined' && docx) || window.docx || null;
+    if (!api || typeof api.Document !== 'function' || !api.Packer) {
+      throw new Error('docx library did not load. Check your network or ad-blocker, then refresh.');
+    }
+    return api;
+  }
+
+  async function loadFile(file) {
+    if (!file || (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name))) {
+      toast('Please choose a PDF file', 'error');
+      return;
+    }
+    currentFile = file;
+    resultBlob = null;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    var chip = el('div', 'file-chip');
+    chip.innerHTML = '<span class="name">' + file.name + '</span><span class="meta">' + formatBytes(file.size) + '</span>';
+    document.getElementById('fileChipHolder').appendChild(chip);
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('statusLine').textContent = 'Opening PDF…';
+
+    try {
+      var bytes = await file.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      document.getElementById('options').style.display = '';
+      document.getElementById('pageCountLine').textContent =
+        pdfDoc.numPages + ' page' + (pdfDoc.numPages === 1 ? '' : 's') + ' loaded';
+      document.getElementById('statusLine').textContent = '';
+    } catch (e) {
+      console.error(e);
+      toast('Could not open this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+  }
+
+  function clusterFallback(items) {
+    var list = (items || []).filter(function (it) { return it.str && it.str.trim(); }).map(function (it) {
+      var t = it.transform || [1, 0, 0, 1, 0, 0];
+      return {
+        str: it.str,
+        x: t[4],
+        y: t[5],
+        size: Math.hypot(t[2], t[3]) || it.height || 10,
+        width: it.width || 0
+      };
+    });
+    list.sort(function (a, b) { return b.y - a.y || a.x - b.x; });
+    var lines = [];
+    var cur = null;
+    list.forEach(function (it) {
+      if (cur && Math.abs(it.y - cur.y) < Math.max(cur.size, it.size) * 0.45) {
+        cur.items.push(it);
+      } else {
+        cur = { y: it.y, size: it.size, items: [it] };
+        lines.push(cur);
+      }
+    });
+    return lines.map(function (l) {
+      l.items.sort(function (a, b) { return a.x - b.x; });
+      return {
+        text: l.items.map(function (i) { return i.str; }).join(' ').replace(/\s+/g, ' ').trim(),
+        size: l.size,
+        y: l.y
+      };
+    }).filter(function (l) { return l.text.length > 0; });
+  }
+
+  async function extractAllLines() {
+    var all = [];
+    var totalChars = 0;
+    for (var p = 1; p <= pdfDoc.numPages; p++) {
+      var page = await pdfDoc.getPage(p);
+      var content = await page.getTextContent();
+      var lines;
+      if (window.ArziLayout && ArziLayout.normalisePdfItems) {
+        var items = ArziLayout.normalisePdfItems(content.items);
+        lines = ArziLayout.clusterLines(items, { lineTolFactor: 0.55 });
+      } else {
+        lines = clusterFallback(content.items || []);
+      }
+      lines.forEach(function (l) {
+        all.push(l);
+        totalChars += (l.text || '').length;
+      });
+      if (p < pdfDoc.numPages) all.push({ pageBreak: true });
+      setProgress(document.getElementById('progress'), Math.round((p / pdfDoc.numPages) * 60));
+      document.getElementById('statusLine').textContent =
+        'Reading page ' + p + ' / ' + pdfDoc.numPages + '…';
+    }
+    return { lines: all, totalChars: totalChars };
+  }
+
+  function buildParagraphs(api, lines, bodySize) {
+    var Paragraph = api.Paragraph;
+    var TextRun = api.TextRun;
+    var HeadingLevel = api.HeadingLevel;
+    var children = [];
+    var buf = [];
+
+    function flush() {
+      if (!buf.length) return;
+      children.push(new Paragraph({
+        children: [new TextRun({ text: buf.join(' '), size: 22 })],
+        spacing: { after: 160 }
+      }));
+      buf = [];
+    }
+
+    function roleOf(text, size) {
+      if (window.ArziLayout && ArziLayout.classifyLine) {
+        return ArziLayout.classifyLine(text, size, bodySize);
+      }
+      var ratio = size / (bodySize || 11);
+      if (/^[•\-\*●▪○◦]\s+\S/.test(text)) return 'bullet';
+      if (/^\d{1,3}[\.\)]\s+\S/.test(text)) return 'numbered';
+      if (ratio > 1.55) return 'h1';
+      if (ratio > 1.28) return 'h2';
+      return 'body';
+    }
+
+    lines.forEach(function (l) {
+      if (l.pageBreak) {
+        flush();
+        children.push(new Paragraph({ children: [], pageBreakBefore: true }));
+        return;
+      }
+      var trimmed = (l.text || '').trim();
+      if (!trimmed) return;
+      var role = roleOf(trimmed, l.size || bodySize);
+
+      if (role === 'bullet') {
+        flush();
+        children.push(new Paragraph({
+          children: [new TextRun(trimmed.replace(/^[•\-\*●▪○◦]\s+/, ''))],
+          bullet: { level: 0 },
+          spacing: { after: 80 }
+        }));
+        return;
+      }
+      if (role === 'numbered') {
+        flush();
+        children.push(new Paragraph({
+          children: [new TextRun(trimmed)],
+          spacing: { after: 80 }
+        }));
+        return;
+      }
+      if (role === 'h1') {
+        flush();
+        children.push(new Paragraph({
+          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun({ text: trimmed, bold: true })],
+          spacing: { before: 240, after: 120 }
+        }));
+        return;
+      }
+      if (role === 'h2') {
+        flush();
+        children.push(new Paragraph({
+          heading: HeadingLevel.HEADING_2,
+          children: [new TextRun({ text: trimmed, bold: true })],
+          spacing: { before: 180, after: 100 }
+        }));
+        return;
+      }
+      buf.push(trimmed);
+      if (/[.!?]"?$/.test(trimmed) && trimmed.length > 40) flush();
+    });
+    flush();
+    return children;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async function () {
+    if (!pdfDoc) { toast('Choose a PDF first', 'error'); return; }
+    var btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    resultBlob = null;
+    document.getElementById('resultBox').classList.remove('show');
+    document.getElementById('statusLine').textContent = 'Extracting text…';
+    setProgress(document.getElementById('progress'), 5);
+
+    try {
+      var api = getDocx();
+      var extracted = await extractAllLines();
+      var lines = extracted.lines;
+      var totalChars = extracted.totalChars;
+
+      document.getElementById('statusLine').textContent =
+        'Found ' + totalChars + ' characters across ' +
+        lines.filter(function (l) { return !l.pageBreak; }).length + ' lines…';
+
+      if (totalChars < 3) {
+        var msgChildren = [
+          new api.Paragraph({
+            children: [new api.TextRun({
+              text: 'No extractable text was found in this PDF.',
+              bold: true,
+              size: 28
+            })],
+            spacing: { after: 200 }
+          }),
+          new api.Paragraph({
+            children: [new api.TextRun({
+              text: 'This usually means the PDF is a scan (images of pages) with no text layer. Use Lab → OCR to recognise text first, then convert again. Native text PDFs (exported from Word, browsers, etc.) work directly.',
+              size: 22
+            })]
+          })
+        ];
+        var emptyDoc = new api.Document({ sections: [{ children: msgChildren }] });
+        var emptyBlob = await api.Packer.toBlob(emptyDoc);
+        resultBlob = new Blob([emptyBlob], {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+        setProgress(document.getElementById('progress'), 100);
+        document.getElementById('resultTitle').textContent = 'No text layer found';
+        document.getElementById('resultMeta').textContent =
+          'File explains the issue · ' + formatBytes(resultBlob.size) + ' · Try OCR for scanned PDFs';
+        document.getElementById('resultBox').classList.add('show');
+        document.getElementById('statusLine').textContent = '';
+        toast('This PDF has no text layer — try OCR first', 'error');
+        btn.disabled = false;
+        return;
+      }
+
+      var sizes = lines.filter(function (l) { return l.size; }).map(function (l) { return l.size; });
+      var bodySize = 11;
+      if (sizes.length) {
+        bodySize = window.ArziLayout
+          ? ArziLayout.median(sizes)
+          : sizes.slice().sort(function (a, b) { return a - b; })[Math.floor(sizes.length / 2)];
+      }
+
+      setProgress(document.getElementById('progress'), 70);
+      document.getElementById('statusLine').textContent = 'Building Word document…';
+
+      var children = buildParagraphs(api, lines, bodySize);
+      if (!children.length) {
+        children.push(new api.Paragraph({
+          children: [new api.TextRun('No paragraph content could be built from the extracted text.')]
+        }));
+      }
+
+      var doc = new api.Document({
+        sections: [{ properties: {}, children: children }]
+      });
+
+      var blob = await api.Packer.toBlob(doc);
+      resultBlob = new Blob([blob], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+
+      if (!resultBlob || resultBlob.size < 500) {
+        throw new Error('Generated .docx was empty or too small (' + (resultBlob && resultBlob.size) + ' bytes)');
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      document.getElementById('resultTitle').textContent = 'Word document ready';
+      document.getElementById('resultMeta').textContent =
+        totalChars + ' characters · ' + children.length + ' blocks · ' +
+        pdfDoc.numPages + ' page' + (pdfDoc.numPages === 1 ? '' : 's') + ' · ' +
+        formatBytes(resultBlob.size);
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e) {
+      console.error(e);
+      toast((e && e.message) ? e.message : 'Could not convert this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (!resultBlob) return;
+    var base = (currentFile && currentFile.name || 'document').replace(/\.pdf$/i, '');
+    downloadBlob(resultBlob, base + '.docx');
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF to JPG | Arzi Lab</title>
+<meta name="description" content="Convert each page of a PDF into a JPG or PNG image, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / PDF to JPG</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">PDF to JPG</h1>
+  <p class="lab-sub">Turn every page into its own image — for pasting into a document, a slide, or a chat.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+    <div class="status-line" id="loadStatus"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <div class="field" id="pageCountLine" style="color:var(--ink-soft); font-size:.85rem;"></div>
+      <div class="row">
+        <div class="field">
+          <label for="fmt">Format</label>
+          <select id="fmt">
+            <option value="image/jpeg" selected>JPG</option>
+            <option value="image/png">PNG</option>
+          </select>
+        </div>
+        <div class="field" id="qualityField">
+          <label for="quality">Quality: <span id="qualityVal">88%</span></label>
+          <input type="range" id="quality" min="40" max="100" value="88">
+        </div>
+        <div class="field">
+          <label for="resolution">Resolution</label>
+          <select id="resolution">
+            <option value="1.5">Standard</option>
+            <option value="2.5" selected>High</option>
+            <option value="4">Print quality</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn seal" id="runBtn">Convert</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, originalBytes = null, pdfDoc = null, pageCount = 0;
+  let resultBlob = null, resultName = 'pages.zip';
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  document.getElementById('fmt').addEventListener('change', (e) => {
+    document.getElementById('qualityField').style.display = e.target.value === 'image/png' ? 'none' : '';
+  });
+  document.getElementById('quality').addEventListener('input', (e) => {
+    document.getElementById('qualityVal').textContent = e.target.value + '%';
+  });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    document.getElementById('loadStatus').textContent = 'Opening…';
+    originalBytes = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    pageCount = pdfDoc.numPages;
+    document.getElementById('pageCountLine').textContent = `${pageCount} page${pageCount === 1 ? '' : 's'} in this file`;
+    document.getElementById('loadStatus').textContent = '';
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!pdfDoc){ toast('Choose a PDF first', 'error'); return; }
+    const fmt = document.getElementById('fmt').value;
+    const quality = parseInt(document.getElementById('quality').value, 10) / 100;
+    const scale = parseFloat(document.getElementById('resolution').value);
+    const ext = fmt === 'image/png' ? 'png' : 'jpg';
+    const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Rendering pages…';
+
+    try {
+      const blobs = [];
+      for (let i = 0; i < pageCount; i++){
+        const page = await pdfDoc.getPage(i + 1);
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (fmt === 'image/jpeg'){ ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const blob = await new Promise(res => canvas.toBlob(res, fmt, fmt === 'image/png' ? undefined : quality));
+        blobs.push(blob);
+        setProgress(document.getElementById('progress'), Math.round(((i + 1) / pageCount) * 100));
+      }
+
+      if (blobs.length === 1){
+        resultBlob = blobs[0];
+        resultName = `${base}.${ext}`;
+      } else {
+        const zip = new JSZip();
+        blobs.forEach((b, i) => zip.file(`${base}-page-${String(i + 1).padStart(2, '0')}.${ext}`, b));
+        resultBlob = await zip.generateAsync({ type: 'blob' });
+        resultName = `${base}-pages.zip`;
+      }
+
+      document.getElementById('resultTitle').textContent = blobs.length === 1 ? 'Image ready' : 'Images ready';
+      document.getElementById('resultMeta').textContent = `${pageCount} page${pageCount === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not convert this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob) downloadBlob(resultBlob, resultName);
+  });
+</script>
+</body>
+</html>
