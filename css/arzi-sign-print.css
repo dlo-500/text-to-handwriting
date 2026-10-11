@@ -1,0 +1,112 @@
+/* ═══════════════════════════════════════════════════════════════
+   Arzi — signature scan / flexible crop / no-signature / print dialog
+   Pairs with js/arzi-signature-scan.js and js/arzi-print.js
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── camera: live ink-only overlay ───────────────────────────────── */
+.sig-video-wrap { position: relative; display: inline-block; max-width: 100%; line-height: 0; background: #111; border-radius: 4px; overflow: hidden; }
+.sig-video-wrap #sigVideo { display: block; width: auto; height: auto; max-width: 100%; max-height: 260px; border-radius: 0; }
+#sigLive {
+  display: none; position: absolute; inset: 0; width: 100%; height: 100%;
+  background: repeating-conic-gradient(#e9e9e9 0% 25%, #fff 0% 50%) 50% / 14px 14px;
+  pointer-events: none;
+}
+
+/* ── cropper ─────────────────────────────────────────────────────── */
+.sig-crop-stage { text-align: center; }
+#sigCropContainer {
+  display: inline-block; position: relative; max-width: 100%;
+  line-height: 0; touch-action: none; user-select: none; -webkit-user-select: none;
+  cursor: crosshair; overflow: hidden;
+}
+#sigCropContainer #sigCropImage { display: block; max-width: 100%; max-height: 58vh; width: auto; height: auto; pointer-events: none; }
+#sigCropContainer #sigCropRect {
+  position: absolute; display: none; box-sizing: border-box;
+  border: 2px solid var(--maroon, #7a2331); background: transparent;
+  box-shadow: 0 0 0 9999px rgba(10, 12, 20, .42);       /* dims everything outside the box */
+  cursor: move;
+}
+#sigCropContainer.dragging { cursor: grabbing; }
+
+.sig-h { position: absolute; z-index: 2; }
+/* corners: big touch targets with a visible dot */
+.sig-h[data-h="nw"], .sig-h[data-h="ne"], .sig-h[data-h="se"], .sig-h[data-h="sw"] { width: 30px; height: 30px; }
+.sig-h[data-h="nw"] { left: -15px;  top: -15px;    cursor: nwse-resize; }
+.sig-h[data-h="ne"] { right: -15px; top: -15px;    cursor: nesw-resize; }
+.sig-h[data-h="se"] { right: -15px; bottom: -15px; cursor: nwse-resize; }
+.sig-h[data-h="sw"] { left: -15px;  bottom: -15px; cursor: nesw-resize; }
+/* edges: full-length strips so the whole side can be grabbed */
+.sig-h[data-h="n"], .sig-h[data-h="s"] { left: 15px; right: 15px; height: 26px; cursor: ns-resize; }
+.sig-h[data-h="e"], .sig-h[data-h="w"] { top: 15px; bottom: 15px; width: 26px; cursor: ew-resize; }
+.sig-h[data-h="n"] { top: -13px; }  .sig-h[data-h="s"] { bottom: -13px; }
+.sig-h[data-h="e"] { right: -13px; } .sig-h[data-h="w"] { left: -13px; }
+.sig-h::after { content: ""; position: absolute; background: #fff; border: 2px solid var(--maroon, #7a2331); box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.sig-h[data-h="nw"]::after, .sig-h[data-h="ne"]::after, .sig-h[data-h="se"]::after, .sig-h[data-h="sw"]::after {
+  width: 12px; height: 12px; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+}
+.sig-h[data-h="n"]::after, .sig-h[data-h="s"]::after { width: 30px; height: 7px; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 4px; }
+.sig-h[data-h="e"]::after, .sig-h[data-h="w"]::after { width: 7px; height: 30px; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 4px; }
+.sig-h:hover::after { background: var(--maroon, #7a2331); }
+
+.sig-crop-tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; }
+.sig-crop-tools .btn { padding: .35rem .7rem; font-size: .78rem; }
+
+.sig-ink-opts { display: grid; gap: .45rem; margin: .4rem 0 .2rem; padding: .6rem .7rem; border: 1px solid var(--line, #d8d2c2); border-radius: 4px; background: rgba(255,255,255,.55); }
+.sig-ink-opts label { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .78rem; font-weight: 600; color: var(--ink-soft, #555); margin: 0; }
+.sig-ink-opts input[type="range"] { width: 55%; cursor: pointer; }
+.sig-ink-opts select { width: 55%; padding: .25rem .4rem; font-size: .8rem; }
+.sig-ink-opts.off { opacity: .45; pointer-events: none; }
+
+.sig-ink-preview {
+  display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 6px;
+  border: 1px solid var(--line, #d8d2c2); border-radius: 4px;
+  background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 14px 14px;
+}
+#sigInkPreview { display: block; max-width: 100%; max-height: 150px; }
+.sig-warn { color: #9a3412 !important; font-weight: 600; }
+
+/* ── no-signature option ─────────────────────────────────────────── */
+.sig-none-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; margin-top: .6rem; }
+.sig-none-row .btn { padding: .4rem .8rem; font-size: .8rem; }
+.sig-none-row .sig-checkbox { margin: 0; }
+
+/* blank space left on the letter for a hand signature */
+.paper .sig-space { display: block; height: calc(var(--sig-h, 38px) + 14px); }
+
+/* ── print dialog ────────────────────────────────────────────────── */
+.pr-modal { display: none; position: fixed; inset: 0; z-index: 1100; background: rgba(20,20,25,.6); align-items: center; justify-content: center; padding: 1rem; }
+.pr-inner { background: #fff; border-radius: 8px; width: 100%; max-width: 960px; height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.pr-body { display: flex; flex: 1; min-height: 0; }
+.pr-opts { width: 300px; flex: none; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .75rem; border-right: 1px solid var(--line, #d8d2c2); }
+.pr-opts label { display: flex; flex-direction: column; gap: .25rem; font-size: .78rem; font-weight: 600; color: var(--ink-soft, #555); }
+.pr-opts select, .pr-opts input[type="number"], .pr-opts input[type="text"] { width: 100%; padding: .45rem .55rem; border: 1px solid var(--line, #d8d2c2); border-radius: 4px; font: inherit; font-size: .88rem; background: #fff; color: var(--ink, #23283a); }
+.pr-opts input.bad { border-color: #b91c1c; background: #fef2f2; }
+.pr-opts .pr-pair { display: flex; gap: .6rem; }
+.pr-opts .pr-pair label { flex: 1; }
+.pr-opts label.pr-check { flex-direction: row; align-items: flex-start; gap: .5rem; font-weight: 500; line-height: 1.35; }
+.pr-opts label.pr-check input { margin-top: .15rem; }
+.pr-note { margin: 0; min-height: 1em; font-size: .78rem; color: #b91c1c; font-weight: 600; }
+.pr-tip { margin: 0; font-size: .74rem; line-height: 1.45; color: var(--ink-soft, #666); background: rgba(184,137,74,.12); border-radius: 4px; padding: .5rem .6rem; }
+.pr-preview { flex: 1; min-width: 0; overflow-y: auto; background: #56575c; padding: 1rem; position: relative; }
+.pr-status { color: #eee; font-size: .85rem; text-align: center; padding: 2rem 0; }
+.pr-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1.1rem; justify-items: center; }
+.pr-thumb { display: flex; flex-direction: column; gap: .4rem; width: 100%; max-width: 190px; color: #eee; font-size: .78rem; cursor: pointer; }
+.pr-thumb .pr-pg canvas { display: block; width: 100%; height: auto; background: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.45); transition: opacity .15s; }
+.pr-thumb.off .pr-pg canvas { opacity: .3; }
+.pr-thumb .pr-cap { display: flex; align-items: center; gap: .35rem; justify-content: center; }
+
+@media (max-width: 720px) {
+  .pr-body { flex-direction: column; }
+  .pr-opts { width: auto; max-height: 48%; border-right: 0; border-bottom: 1px solid var(--line, #d8d2c2); }
+}
+
+/* ── print output: exactly the pages chosen in the dialog ────────── */
+#arziPrintRoot { display: none; }
+@media print {
+  body.arzi-printing > *:not(#arziPrintRoot) { display: none !important; }
+  body.arzi-printing { background: #fff !important; margin: 0 !important; }
+  body.arzi-printing #arziPrintRoot { display: block !important; }
+  .arzi-print-page { box-sizing: border-box; overflow: hidden; break-after: page; page-break-after: always; }
+  .arzi-print-page:last-child { break-after: auto; page-break-after: auto; }
+  .arzi-print-page img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
