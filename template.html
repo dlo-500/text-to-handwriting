@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Great+Vibes&family=Allura&family=Yellowtail&family=Homemade+Apple&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="css/arzi-realism.css">
+<link rel="stylesheet" href="css/arzi-mascot-pro.css">
 
 <style>
   body { background: var(--paper); }
@@ -453,7 +454,7 @@
     transition: box-shadow 0.2s ease;
   }
   #arzi-mascot:hover { box-shadow: 0 8px 22px rgba(0,0,0,0.55); }
-  #arzi-mascot svg {
+  #arzi-mascot > svg.mp-head {
     width: 100%;
     height: 100%;
     display: block;
@@ -481,8 +482,8 @@
     40%     { transform: scale(1.03) translateY(1px); }
     70%     { transform: scale(0.98) translateY(0); }
   }
-  #arzi-mascot.idle svg { animation: arzi-breathe 3.6s ease-in-out infinite; }
-  #arzi-mascot.yawn svg { animation: arzi-yawn-bob 1.2s ease-in-out; }
+  #arzi-mascot.idle > svg.mp-head { animation: arzi-breathe 3.6s ease-in-out infinite; }
+  #arzi-mascot.yawn > svg.mp-head { animation: arzi-yawn-bob 1.2s ease-in-out; }
 
   #arzi-mascot-bubble {
     position: fixed;
@@ -572,8 +573,8 @@
     #arzi-point-hand { width: 38px; height: 38px; }
   }
   @media (prefers-reduced-motion: reduce) {
-    #arzi-mascot.idle svg,
-    #arzi-mascot.yawn svg,
+    #arzi-mascot.idle > svg.mp-head,
+    #arzi-mascot.yawn > svg.mp-head,
     #arzi-point-hand.show { animation: none; }
   }
 </style>
@@ -586,6 +587,8 @@
       <a class="editor-nav-link" href="editor.html" data-arzi-nav title="Open freeform handwritten letter editor">Write by yourself &rarr;</a>
     </div>
     <div class="export-actions">
+      <button type="button" class="btn" id="arzi-sound-toggle" aria-pressed="false" title="Soft paper &amp; pen sounds from the mascot">&#9834; Sound: off</button>
+      <button type="button" class="btn" id="arzi-clear-desk" title="Clear the form (you can undo)">Clear desk</button>
       <button class="btn arzi-stamp" id="export-image">Save as Image</button>
       <button class="btn primary arzi-stamp" id="export-pdf">Save as PDF</button>
     </div>
@@ -1783,7 +1786,7 @@
 
   <!-- ═══ Arzi Grok Guide — field coach + reactions ═══ -->
   <div id="arzi-mascot" class="idle" aria-hidden="true" title="Arzi Guide — click for a tip">
-    <svg viewBox="0 0 100 100">
+    <svg class="mp-head" viewBox="0 0 100 100">
       <circle class="head" cx="50" cy="50" r="48"/>
       <ellipse class="eye left"  cx="34" cy="43" rx="10" ry="14"/>
       <ellipse class="eye right" cx="66" cy="43" rx="10" ry="14"/>
@@ -1822,6 +1825,7 @@
     var blinkUntil = 0;
     var lookAround = { x: 0, y: 0 };
     var gazeX = 0, gazeY = 0;
+    var quiet = false, moodKey = null, biasX = 0, biasY = 0, bubbleGap = 14;
     var reduceMotion = false;
     try {
       reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1849,13 +1853,24 @@
       sad:       { L:[34,50,10,5],  R:[66,50,10,5] },
       sleepy:    { L:[34,48,11,3],  R:[66,48,11,3] },
       yawn:      { L:[34,46,11,3.5], R:[66,46,11,3.5] },
-      error:     { L:[34,43,9,8],   R:[66,43,9,8] }
+      error:     { L:[34,43,9,8],   R:[66,43,9,8] },
+      /* co-pilot faces (arzi-mascot-pro.js) */
+      squint:    { L:[34,45,11,4.5], R:[66,45,11,4.5] },
+      solemn:    { L:[34,45,10,8],   R:[66,45,10,8] },
+      gentle:    { L:[34,45,10,11],  R:[66,45,10,11] },
+      bow:       { L:[34,50,10,7],   R:[66,50,10,7] },
+      relaxed:   { L:[34,46,11,8],   R:[66,46,11,8] },
+      giggle:    { L:[34,46,12,5],   R:[66,46,12,5] },
+      catch:     { L:[34,36,10,15],  R:[66,36,10,15] },
+      writing:   { L:[34,48,9,10],   R:[66,48,9,10] },
+      alert:     { L:[34,42,9,15],   R:[66,42,9,15] }
     };
 
     function applyFace(name, look, blinkScale) {
-      var f = faces[name] || faces.idle;
-      var ox = look ? look.x : 0;
-      var oy = look ? look.y : 0;
+      var fk = (name === 'idle' && moodKey && faces[moodKey]) ? moodKey : name;
+      var f = faces[fk] || faces.idle;
+      var ox = (look ? look.x : 0) + biasX;
+      var oy = (look ? look.y : 0) + biasY;
       ox = Math.max(-8, Math.min(8, ox));
       oy = Math.max(-9, Math.min(8, oy));
       var bs = (blinkScale != null) ? blinkScale : 1;
@@ -1880,7 +1895,7 @@
       var bw = bubble.offsetWidth || 200;
       var bh = bubble.offsetHeight || 52;
       var bx = Math.max(8, Math.min(window.innerWidth - bw - 8, x + size / 2 - bw / 2));
-      var by = y - bh - 14;
+      var by = y - bh - bubbleGap;
       if (by < 8) by = y + size + 10;
       bubble.style.left = bx + 'px';
       bubble.style.top = by + 'px';
@@ -1940,6 +1955,7 @@
     function showBubble(msg, ms, opts) {
       if (!msg) return;
       opts = opts || {};
+      if (quiet && !opts.force) return;
       bubble.textContent = msg;
       bubble.classList.add('show');
       placeBubble();
@@ -1960,14 +1976,18 @@
       if (bubble.classList.contains('show')) placeBubble();
     }
 
-    function play(name) {
+    function play(name, opts) {
+      opts = opts || {};
       if (!faces[name]) name = 'idle';
+      if (quiet && (name === 'celebrate' || name === 'happy' || name === 'yawn' || name === 'giggle')) name = 'idle';
       applyFace(name, { x: gazeX, y: gazeY }, 1);
       clearTimeout(faceTimer);
-      if (name !== 'idle') {
-        var delay = name === 'celebrate' ? 2600 :
-                    name === 'yawn' ? 1600 :
-                    (name === 'thinking' || name === 'searching') ? 4800 : 3200;
+      if (name !== 'idle' && !opts.hold) {
+        var delay = opts.ms ||
+                    (name === 'celebrate' ? 2600 :
+                     name === 'yawn' ? 1600 :
+                     name === 'giggle' ? 1500 :
+                     (name === 'thinking' || name === 'searching') ? 4800 : 3200);
         faceTimer = setTimeout(function () { applyFace('idle'); }, delay);
       }
       resetIdle();
@@ -2227,7 +2247,7 @@
         var from = val('dateFrom'), to = val('dateTo');
         if (from && to && from > to) {
           play('confused');
-          showBubble('To date is before From date — please correct the range.', 5000, { pointAt: el });
+          showBubble('To date is before From date — please correct the range.', 5000, { pointAt: el, force: true });
           return;
         }
         if (from && to) {
@@ -2289,13 +2309,14 @@
       var margin = 10, tabGuard = 80;
       var restX = window.innerWidth - size - 14;
       var restY = window.innerHeight - size - tabGuard;
-      var pull = reduceMotion ? 0.08 : 0.22;
+      var pull = quiet ? 0.05 : (reduceMotion ? 0.08 : 0.22);
       tx = mx * pull + restX * (1 - pull) - size / 2;
       ty = my * (pull * 0.8) + restY * (1 - pull * 0.8) - size / 2;
       tx = Math.max(margin, Math.min(window.innerWidth - size - margin, tx));
       ty = Math.max(margin, Math.min(window.innerHeight - size - tabGuard, ty));
-      x += (tx - x) * (reduceMotion ? 0.04 : 0.06);
-      y += (ty - y) * (reduceMotion ? 0.04 : 0.06);
+      var ease = (reduceMotion || quiet) ? 0.04 : 0.06;
+      x += (tx - x) * ease;
+      y += (ty - y) * ease;
       setPos();
 
       var cx = x + size / 2, cy = y + size / 2;
@@ -2334,7 +2355,7 @@
     }
     function scheduleLookAround() {
       setTimeout(function () {
-        if (currentFace === 'idle' || currentFace === 'listening') {
+        if ((currentFace === 'idle' || currentFace === 'listening') && !quiet) {
           lookAround.x = (Math.random() - 0.5) * 14;
           lookAround.y = (Math.random() - 0.5) * 10;
           setTimeout(function () { lookAround.x = 0; lookAround.y = 0; }, 900 + Math.random() * 800);
@@ -2344,7 +2365,7 @@
     }
     function scheduleYawn() {
       setTimeout(function () {
-        if (currentFace === 'idle' || currentFace === 'sleepy') play('yawn');
+        if ((currentFace === 'idle' || currentFace === 'sleepy') && !quiet) play('yawn');
         scheduleYawn();
       }, 18000 + Math.random() * 25000);
     }
@@ -2389,22 +2410,22 @@
 
     window.arziMascot = {
       play: play,
-      say: function (msg, ms) { showBubble(msg, ms); },
+      say: function (msg, ms) { showBubble(msg, ms, { force: true }); },
       brief: function () {
         var b = buildStatusBrief();
         play(b.face);
-        showBubble(b.msg, 6000, { pointAt: b.pointAt });
+        showBubble(b.msg, 6000, { pointAt: b.pointAt, force: true });
       },
       next: function () {
         var el = nextEmptyField();
         if (!el) {
           play('celebrate');
-          showBubble('Nothing left on the checklist — export when ready.', 4000);
+          showBubble('Nothing left on the checklist — export when ready.', 4000, { force: true });
           return;
         }
         var tip = fieldTips[el.id] || { face: 'listening', msg: 'Fill this field next.' };
         play(tip.face);
-        showBubble(tip.msg, 4800, { pointAt: el });
+        showBubble(tip.msg, 4800, { pointAt: el, force: true });
         try { el.focus(); } catch (e) {}
       },
       idle: function () { play('idle'); },
@@ -2418,6 +2439,36 @@
       sleepy: function () { play('sleepy'); },
       error: function () { play('error'); },
       yawn: function () { play('yawn'); }
+    };
+
+    /* Internals for js/arzi-mascot-pro.js (document & ink co-pilot layer) */
+    window.arziMascot.core = {
+      box: box,
+      reduceMotion: reduceMotion,
+      play: play,
+      face: function () { return currentFace; },
+      showBubble: showBubble,
+      hideBubble: function () { bubble.classList.remove('show'); hideHand(); clearFieldFocus(); },
+      setMood: function (key) {
+        moodKey = key || null;
+        if (currentFace === 'idle') applyFace('idle', { x: gazeX, y: gazeY }, 1);
+      },
+      setBias: function (bx, by) {
+        biasX = bx || 0; biasY = by || 0;
+        applyFace(currentFace, { x: gazeX, y: gazeY }, 1);
+      },
+      setQuiet: function (q) {
+        quiet = !!q;
+        box.setAttribute('data-quiet', quiet ? '1' : '0');
+        if (quiet) { clearTimeout(bubbleTimer); bubble.classList.remove('show'); hideHand(); clearFieldFocus(); }
+      },
+      isQuiet: function () { return quiet; },
+      setBubbleGap: function (g) { bubbleGap = g; },
+      pointerTo: pointerTo,
+      center: function () { return { x: x + size / 2, y: y + size / 2, size: size }; },
+      stats: completionStats,
+      seen: hasSeen,
+      mark: markSeen
     };
 
     window.addEventListener('mousemove', function (e) { pointerTo(e.clientX, e.clientY); }, { passive: true });
@@ -2434,7 +2485,9 @@
       y = Math.min(y, window.innerHeight - size - 80);
     });
 
-    box.addEventListener('click', function () {
+    box.addEventListener('click', function (e) {
+      var pro = window.arziMascotPro;
+      if (pro && pro.onPoke && pro.onPoke(e)) return;
       window.arziMascot.brief();
     });
 
@@ -2484,5 +2537,6 @@
     document.addEventListener('input', function () { updateProgressChip(); });
   })();
   </script>
+  <script src="js/arzi-mascot-pro.js"></script>
 </body>
 </html>
