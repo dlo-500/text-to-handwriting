@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stamps | Arzi Lab</title>
+<meta name="description" content="Stamp a PDF with RECEIVED, APPROVED or a custom mark, positioned wherever you like, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .preset-row{ display:flex; gap:.5rem; flex-wrap:wrap; }
+  .preset-chip{
+    border:1px solid var(--paper-line); background:var(--paper-white); border-radius:999px;
+    padding:.4rem .9rem; font-size:.82rem; cursor:pointer; font-weight:600; letter-spacing:.02em;
+  }
+  .preset-chip.active{ border-color:var(--seal); background:var(--seal-dim); color:var(--seal); }
+  #stampPreviewWrap{
+    background:repeating-conic-gradient(#f3f3f3 0% 25%, #fff 0% 50%) 0 0/16px 16px;
+    border:1px solid var(--paper-line); border-radius:var(--radius-s); padding:1.4rem;
+    display:flex; align-items:center; justify-content:center; min-height:120px; margin-top:1rem;
+  }
+  #stampPreviewWrap img{ max-height:110px; }
+
+  .page-nav{ display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+  .page-nav .pn-strip{ display:flex; gap:.35rem; overflow-x:auto; padding:.15rem; flex:1; min-width:120px; }
+  .pn-chip{
+    flex:none; width:30px; height:30px; border-radius:var(--radius-s); border:1px solid var(--paper-line);
+    background:var(--paper-white); font-size:.76rem; cursor:pointer; position:relative; color:var(--ink-soft);
+  }
+  .pn-chip.current{ border-color:var(--seal); color:var(--seal); font-weight:700; }
+  .pn-chip.marked::after{
+    content:""; position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--seal);
+  }
+  .stage-outer{ margin-top:1rem; max-width:100%; overflow:auto; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:#e9e4d4; padding:10px; }
+  .stage-inner{ position:relative; display:inline-block; }
+  .stage-inner canvas{ display:block; max-width:100%; height:auto; }
+  .overlayLayer{ position:absolute; inset:0; }
+  .sig-box{ position:absolute; border:1.5px dashed var(--seal); cursor:move; touch-action:none; }
+  .sig-box img{ width:100%; height:100%; display:block; pointer-events:none; }
+  .sig-box .resize-handle{
+    position:absolute; right:-7px; bottom:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--seal); border:2px solid #fff; cursor:nwse-resize; touch-action:none;
+  }
+  .sig-box .sig-remove{
+    position:absolute; top:-11px; right:-11px; width:20px; height:20px; border-radius:50%;
+    background:var(--ink); color:#fff; border:2px solid #fff; font-size:.7rem; line-height:1; cursor:pointer;
+  }
+  .hint{ font-size:.8rem; color:var(--ink-soft); margin-top:.5rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Stamps</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Stamps</h1>
+  <p class="lab-sub">Pick a preset like RECEIVED or APPROVED, or write your own — then place it on the page like a real rubber stamp.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <h3 style="margin:0 0 1rem; font-family:var(--serif); font-size:1.1rem;">1. Open a PDF</h3>
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+    <div class="status-line" id="loadStatus"></div>
+  </div>
+
+  <div class="bench">
+    <h3 style="margin:0 0 1rem; font-family:var(--serif); font-size:1.1rem;">2. Design the stamp</h3>
+    <div class="preset-row" id="presetRow">
+      <span class="preset-chip active" data-t="RECEIVED">RECEIVED</span>
+      <span class="preset-chip" data-t="APPROVED">APPROVED</span>
+      <span class="preset-chip" data-t="REJECTED">REJECTED</span>
+      <span class="preset-chip" data-t="CERTIFIED TRUE COPY">CERTIFIED TRUE COPY</span>
+      <span class="preset-chip" data-t="ORIGINAL SEEN">ORIGINAL SEEN</span>
+      <span class="preset-chip" data-t="DRAFT">DRAFT</span>
+      <span class="preset-chip" data-t="">Custom</span>
+    </div>
+
+    <div class="field" style="margin-top:1rem;">
+      <label for="stampText">Stamp text</label>
+      <input type="text" id="stampText" value="RECEIVED" maxlength="40">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="stampColor">Colour</label>
+        <select id="stampColor">
+          <option value="#8a2e24" selected>Seal red</option>
+          <option value="#2f5233">Approval green</option>
+          <option value="#1d3a6e">Ink blue</option>
+          <option value="#1b2430">Black</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="stampShape">Border</label>
+        <select id="stampShape">
+          <option value="box" selected>Boxed</option>
+          <option value="double">Double-line box</option>
+          <option value="none">Text only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="stampTilt">Tilt: <span id="tiltVal">-6°</span></label>
+        <input type="range" id="stampTilt" min="-20" max="20" value="-6">
+      </div>
+    </div>
+    <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem;">
+      <input type="checkbox" id="includeDate"> Include today's date
+    </label>
+
+    <div id="stampPreviewWrap"><img id="stampPreviewImg"></div>
+    <button class="btn seal" id="useStamp" style="margin-top:1rem;">Use this stamp</button>
+  </div>
+
+  <div class="bench" id="placeBench" style="display:none;">
+    <h3 style="margin:0 0 1rem; font-family:var(--serif); font-size:1.1rem;">3. Place it on the page</h3>
+    <div class="page-nav">
+      <button class="btn secondary" id="prevBtn">←</button>
+      <div class="pn-strip" id="pnStrip"></div>
+      <button class="btn secondary" id="nextBtn">→</button>
+    </div>
+
+    <div class="stage-outer">
+      <div class="stage-inner" id="stageInner">
+        <canvas id="baseCanvas"></canvas>
+        <div class="overlayLayer" id="overlayLayer"></div>
+      </div>
+    </div>
+    <p class="hint">Drag the stamp to move it, use the corner handle to resize it, or the × to remove it.</p>
+
+    <button class="btn secondary" id="addBtn" style="margin-top:1rem;" disabled>Stamp this page</button>
+
+    <button class="btn seal" id="runBtn" style="margin-top:1rem;">Apply &amp; download</button>
+    <div class="progress" id="progress"><i></i></div>
+    <div class="status-line" id="statusLine"></div>
+    <div class="result" id="resultBox">
+      <div class="r-title" id="resultTitle"></div>
+      <div class="r-meta" id="resultMeta"></div>
+      <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  /* ---------- stamp design ---------- */
+  document.querySelectorAll('.preset-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      document.getElementById('stampText').value = chip.dataset.t;
+    });
+  });
+  document.getElementById('stampText').addEventListener('input', () => {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    const match = [...document.querySelectorAll('.preset-chip')].find(c => c.dataset.t === document.getElementById('stampText').value);
+    if (match) match.classList.add('active');
+  });
+  document.getElementById('stampTilt').addEventListener('input', (e) => {
+    document.getElementById('tiltVal').textContent = e.target.value + '°';
+  });
+
+  function todayStr(){
+    const d = new Date();
+    return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  function buildStampCanvas(){
+    const text = (document.getElementById('stampText').value || 'STAMP').toUpperCase();
+    const color = document.getElementById('stampColor').value;
+    const shape = document.getElementById('stampShape').value;
+    const tilt = parseFloat(document.getElementById('stampTilt').value) || 0;
+    const withDate = document.getElementById('includeDate').checked;
+    const sub = withDate ? todayStr() : '';
+
+    const padX = 26, padY = 16;
+    const fontMain = 40, fontSub = 20;
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.font = `700 ${fontMain}px Inter, sans-serif`;
+    const mainW = measure.measureText(text).width;
+    measure.font = `600 ${fontSub}px Inter, sans-serif`;
+    const subW = sub ? measure.measureText(sub).width : 0;
+    const boxW = Math.max(mainW, subW) + padX * 2;
+    const boxH = fontMain + (sub ? fontSub + 10 : 0) + padY * 2;
+
+    // extra canvas room to fit the rotated box without clipping
+    const rad = Math.abs(tilt) * Math.PI / 180;
+    const outW = Math.ceil(boxW * Math.cos(rad) + boxH * Math.sin(rad)) + 20;
+    const outH = Math.ceil(boxW * Math.sin(rad) + boxH * Math.cos(rad)) + 20;
+
+    const c = document.createElement('canvas');
+    c.width = outW; c.height = outH;
+    const ctx = c.getContext('2d');
+    ctx.translate(outW / 2, outH / 2);
+    ctx.rotate(tilt * Math.PI / 180);
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    if (shape !== 'none'){
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+      if (shape === 'double'){
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-boxW / 2 + 6, -boxH / 2 + 6, boxW - 12, boxH - 12);
+      }
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 ${fontMain}px Inter, sans-serif`;
+    ctx.fillText(text, 0, sub ? -fontSub / 2 - 2 : 0);
+    if (sub){
+      ctx.font = `600 ${fontSub}px Inter, sans-serif`;
+      ctx.fillText(sub, 0, fontMain / 2 + 6);
+    }
+    return c;
+  }
+
+  let stamp = null; // { dataUrl, w, h, aspect }
+  document.getElementById('useStamp').addEventListener('click', () => {
+    const text = document.getElementById('stampText').value.trim();
+    if (!text){ toast('Enter some stamp text', 'error'); return; }
+    const c = buildStampCanvas();
+    const dataUrl = c.toDataURL('image/png');
+    stamp = { dataUrl, w: c.width, h: c.height, aspect: c.height / c.width };
+    document.getElementById('stampPreviewImg').src = dataUrl;
+    document.getElementById('addBtn').disabled = !pdfReady;
+    toast('Stamp ready — scroll down to place it');
+  });
+  // live preview on load
+  (function initPreview(){
+    const c = buildStampCanvas();
+    document.getElementById('stampPreviewImg').src = c.toDataURL('image/png');
+  })();
+
+  /* ---------- PDF loading ---------- */
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, originalBytes = null, pdfDoc = null, pageCount = 0;
+  let currentPageIdx = 0, pdfReady = false;
+  let placements = []; // { id, pageIndex, xRel, yRel, wRel, hRel }
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    document.getElementById('loadStatus').textContent = 'Opening…';
+    originalBytes = await file.arrayBuffer();
+    pdfDoc = await pdfjsLib.getDocument({ data: originalBytes.slice(0) }).promise;
+    pageCount = pdfDoc.numPages;
+    currentPageIdx = 0;
+    placements = [];
+    pdfReady = true;
+
+    document.getElementById('loadStatus').textContent = '';
+    document.getElementById('placeBench').style.display = '';
+    document.getElementById('addBtn').disabled = !stamp;
+    document.getElementById('resultBox').classList.remove('show');
+    buildStrip();
+    await renderCurrentPage();
+  }
+
+  function buildStrip(){
+    const strip = document.getElementById('pnStrip');
+    strip.innerHTML = '';
+    for (let i = 0; i < pageCount; i++){
+      const chip = el('button', 'pn-chip', String(i + 1));
+      chip.addEventListener('click', () => { currentPageIdx = i; renderCurrentPage(); });
+      strip.appendChild(chip);
+    }
+    markStripState();
+  }
+  function markStripState(){
+    document.querySelectorAll('.pn-chip').forEach((c, i) => {
+      c.classList.toggle('current', i === currentPageIdx);
+      c.classList.toggle('marked', placements.some(p => p.pageIndex === i));
+    });
+  }
+
+  const baseCanvas = document.getElementById('baseCanvas');
+  const baseCtx = baseCanvas.getContext('2d');
+  const overlayLayer = document.getElementById('overlayLayer');
+
+  async function renderCurrentPage(){
+    const page = await pdfDoc.getPage(currentPageIdx + 1);
+    const vp1 = page.getViewport({ scale: 1 });
+    const scale = Math.min(720 / vp1.width, 880 / vp1.height, 3);
+    const viewport = page.getViewport({ scale: Math.max(scale, 0.3) });
+    baseCanvas.width = viewport.width; baseCanvas.height = viewport.height;
+    await page.render({ canvasContext: baseCtx, viewport }).promise;
+    markStripState();
+    renderOverlay();
+  }
+
+  function renderOverlay(){
+    overlayLayer.innerHTML = '';
+    placements.filter(p => p.pageIndex === currentPageIdx).forEach(p => buildStampBox(p));
+  }
+
+  function buildStampBox(p){
+    const box = el('div', 'sig-box');
+    box.style.left = (p.xRel * 100) + '%';
+    box.style.top = (p.yRel * 100) + '%';
+    box.style.width = (p.wRel * 100) + '%';
+    box.style.height = (p.hRel * 100) + '%';
+
+    const img = document.createElement('img');
+    img.src = p.dataUrl;
+    box.appendChild(img);
+    const handle = el('div', 'resize-handle');
+    box.appendChild(handle);
+    const rm = el('button', 'sig-remove', '×');
+    box.appendChild(rm);
+
+    rm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      placements = placements.filter(x => x.id !== p.id);
+      renderOverlay(); markStripState();
+    });
+
+    box.addEventListener('pointerdown', (e) => {
+      if (e.target === handle || e.target === rm) return;
+      e.preventDefault();
+      const rect = overlayLayer.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startXRel = p.xRel, startYRel = p.yRel;
+      box.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        const dyRel = (ev.clientY - startY) / rect.height;
+        p.xRel = Math.min(Math.max(startXRel + dxRel, 0), 1 - p.wRel);
+        p.yRel = Math.min(Math.max(startYRel + dyRel, 0), 1 - p.hRel);
+        box.style.left = (p.xRel * 100) + '%';
+        box.style.top = (p.yRel * 100) + '%';
+      }
+      function up(ev){
+        box.releasePointerCapture(ev.pointerId);
+        box.removeEventListener('pointermove', move);
+        box.removeEventListener('pointerup', up);
+      }
+      box.addEventListener('pointermove', move);
+      box.addEventListener('pointerup', up);
+    });
+
+    handle.addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const rect = overlayLayer.getBoundingClientRect();
+      const startX = e.clientX;
+      const startW = p.wRel;
+      handle.setPointerCapture(e.pointerId);
+      function move(ev){
+        const dxRel = (ev.clientX - startX) / rect.width;
+        let newW = Math.min(Math.max(startW + dxRel, 0.03), 1 - p.xRel);
+        p.wRel = newW;
+        p.hRel = newW * p.aspect * (rect.width / rect.height);
+        box.style.width = (p.wRel * 100) + '%';
+        box.style.height = (p.hRel * 100) + '%';
+      }
+      function up(ev){
+        handle.releasePointerCapture(ev.pointerId);
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', up);
+      }
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', up);
+    });
+
+    overlayLayer.appendChild(box);
+  }
+
+  document.getElementById('addBtn').addEventListener('click', () => {
+    if (!stamp || !pdfReady) return;
+    const rect = overlayLayer.getBoundingClientRect();
+    const wRel = 0.34;
+    const hRel = wRel * stamp.aspect * (rect.width / rect.height);
+    placements.push({
+      id: 'sb' + Math.random().toString(36).slice(2),
+      pageIndex: currentPageIdx,
+      dataUrl: stamp.dataUrl, aspect: stamp.aspect,
+      xRel: (1 - wRel) / 2, yRel: (1 - hRel) / 2,
+      wRel, hRel: Math.min(hRel, 0.9)
+    });
+    renderOverlay(); markStripState();
+  });
+
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentPageIdx > 0){ currentPageIdx--; renderCurrentPage(); }
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (currentPageIdx < pageCount - 1){ currentPageIdx++; renderCurrentPage(); }
+  });
+
+  /* ---------- export ---------- */
+  function dataUrlToBytes(dataUrl){
+    const b64 = dataUrl.split(',')[1];
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  let resultBlob = null;
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    if (placements.length === 0){ toast('Add the stamp to at least one page', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Stamping…';
+    setProgress(document.getElementById('progress'), 30);
+
+    try {
+      const { PDFDocument } = PDFLib;
+      const outDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      const pdfPages = outDoc.getPages();
+
+      // embed each distinct stamp image once
+      const embedCache = new Map();
+      for (const p of placements){
+        if (!embedCache.has(p.dataUrl)){
+          const bytes = dataUrlToBytes(p.dataUrl);
+          embedCache.set(p.dataUrl, await outDoc.embedPng(bytes));
+        }
+        const page = pdfPages[p.pageIndex];
+        if (!page) continue;
+        const { width, height } = page.getSize();
+        const w = p.wRel * width, h = p.hRel * height;
+        const x = p.xRel * width, y = height - (p.yRel + p.hRel) * height;
+        page.drawImage(embedCache.get(p.dataUrl), { x, y, width: w, height: h });
+      }
+
+      setProgress(document.getElementById('progress'), 100);
+      const outBytes = await outDoc.save();
+      resultBlob = new Blob([outBytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Stamped';
+      document.getElementById('resultMeta').textContent = `${placements.length} stamp${placements.length === 1 ? '' : 's'} · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not stamp this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-stamped.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

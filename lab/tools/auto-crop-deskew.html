@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auto-crop &amp; Deskew | Arzi Lab</title>
+<meta name="description" content="Trim the blank border on a camera photo of a page and straighten it automatically, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .stage-outer{ margin-top:1rem; max-width:100%; overflow:auto; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:#e9e4d4; padding:10px; text-align:center; }
+  #viewCanvas{ display:block; max-width:100%; height:auto; margin:0 auto; }
+  .step{ border-top:1px solid var(--paper-line); padding-top:1.2rem; margin-top:1.4rem; }
+  .step:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .step h3{ font-family:var(--serif); font-size:1rem; margin:0 0 .8rem; }
+  .btn-tight{ padding:.5rem .9rem; font-size:.85rem; }
+  .dims-line{ font-size:.82rem; color:var(--ink-soft); margin-top:.5rem; }
+  .detect-line{ font-size:.85rem; color:var(--seal); margin-top:.6rem; min-height:1.2em; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Auto-crop &amp; deskew</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Auto-crop &amp; deskew</h1>
+  <p class="lab-sub">For a camera photo of a page: trim the background around the edges, and straighten the page if it was shot at an angle.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="dz-title">Drop a photo here, or tap to choose</div>
+      <div class="dz-sub">Works best when the page fills most of the frame against a plain background</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="workArea" style="display:none; margin-top:1.2rem;">
+      <div class="stage-outer"><canvas id="viewCanvas"></canvas></div>
+      <div class="dims-line" id="dimsLine"></div>
+
+      <div class="step">
+        <h3>1. Trim the border</h3>
+        <button class="btn seal btn-tight" id="autoCropBtn">Auto-crop</button>
+        <button class="btn secondary btn-tight" id="undoCropBtn" disabled>Undo</button>
+      </div>
+
+      <div class="step">
+        <h3>2. Straighten</h3>
+        <button class="btn seal btn-tight" id="autoStraightenBtn">Auto-detect &amp; straighten</button>
+        <div class="detect-line" id="detectLine"></div>
+        <div class="field" style="margin-top:.9rem;">
+          <label for="fineAngle">Fine adjust: <span id="angleVal">0°</span></label>
+          <input type="range" id="fineAngle" min="-15" max="15" step="0.2" value="0">
+        </div>
+        <button class="btn secondary btn-tight" id="applyAngle">Apply fine adjust</button>
+      </div>
+
+      <div class="step">
+        <h3>3. Export</h3>
+        <div class="row">
+          <div class="field">
+            <label for="fmt">Format</label>
+            <select id="fmt">
+              <option value="image/jpeg" selected>JPEG</option>
+              <option value="image/png">PNG</option>
+              <option value="image/webp">WebP</option>
+            </select>
+          </div>
+          <div class="field" id="qualityField">
+            <label for="quality">Quality: <span id="qualityVal">90%</span></label>
+            <input type="range" id="quality" min="10" max="100" value="90">
+          </div>
+        </div>
+        <button class="btn seal" id="downloadBtn">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">Straightening is estimated from the page's text lines and edges — it works well for clear scans of printed pages and may need a manual nudge for handwriting or busy backgrounds.</p>
+</main>
+
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const viewCanvas = document.getElementById('viewCanvas');
+  const viewCtx = viewCanvas.getContext('2d');
+  let workCanvas = document.createElement('canvas');
+  let preCropCanvas = null;
+  let currentFile = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  function loadFile(file){
+    if (!file || !file.type.startsWith('image/')){ toast('Please choose an image file', 'error'); return; }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 3000;
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      workCanvas = document.createElement('canvas');
+      workCanvas.width = Math.round(img.naturalWidth * scale);
+      workCanvas.height = Math.round(img.naturalHeight * scale);
+      workCanvas.getContext('2d').drawImage(img, 0, 0, workCanvas.width, workCanvas.height);
+      preCropCanvas = null;
+      document.getElementById('undoCropBtn').disabled = true;
+      document.getElementById('workArea').style.display = '';
+      refreshView();
+    };
+    img.src = URL.createObjectURL(file);
+  }
+
+  function refreshView(){
+    viewCanvas.width = workCanvas.width;
+    viewCanvas.height = workCanvas.height;
+    viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+    viewCtx.drawImage(workCanvas, 0, 0);
+    document.getElementById('dimsLine').textContent = `${workCanvas.width} × ${workCanvas.height} px`;
+  }
+
+  /* ---- 1. auto-crop ---- */
+  function autoCropBounds(src){
+    const maxDim = 500;
+    const scale = Math.min(1, maxDim / Math.max(src.width, src.height));
+    const w = Math.max(1, Math.round(src.width * scale));
+    const h = Math.max(1, Math.round(src.height * scale));
+    const small = document.createElement('canvas'); small.width = w; small.height = h;
+    const sctx = small.getContext('2d');
+    sctx.drawImage(src, 0, 0, w, h);
+    const data = sctx.getImageData(0, 0, w, h).data;
+
+    let br = 0, bgc = 0, bb = 0, bn = 0;
+    for (let x = 0; x < w; x++){
+      [0, h - 1].forEach(y => { const i = (y * w + x) * 4; br += data[i]; bgc += data[i+1]; bb += data[i+2]; bn++; });
+    }
+    for (let y = 0; y < h; y++){
+      [0, w - 1].forEach(x => { const i = (y * w + x) * 4; br += data[i]; bgc += data[i+1]; bb += data[i+2]; bn++; });
+    }
+    br /= bn; bgc /= bn; bb /= bn;
+    const thresh = 30;
+
+    function rowHasContent(y){
+      let count = 0;
+      for (let x = 0; x < w; x++){
+        const i = (y * w + x) * 4;
+        if (Math.abs(data[i]-br) + Math.abs(data[i+1]-bgc) + Math.abs(data[i+2]-bb) > thresh) count++;
+      }
+      return count > w * 0.01;
+    }
+    function colHasContent(x){
+      let count = 0;
+      for (let y = 0; y < h; y++){
+        const i = (y * w + x) * 4;
+        if (Math.abs(data[i]-br) + Math.abs(data[i+1]-bgc) + Math.abs(data[i+2]-bb) > thresh) count++;
+      }
+      return count > h * 0.01;
+    }
+
+    let top = 0; while (top < h && !rowHasContent(top)) top++;
+    let bottom = h - 1; while (bottom > top && !rowHasContent(bottom)) bottom--;
+    let left = 0; while (left < w && !colHasContent(left)) left++;
+    let right = w - 1; while (right > left && !colHasContent(right)) right--;
+    if (top >= bottom || left >= right) return null;
+
+    const fx = src.width / w, fy = src.height / h;
+    const pad = 10;
+    return {
+      x: Math.max(0, Math.floor(left * fx - pad)),
+      y: Math.max(0, Math.floor(top * fy - pad)),
+      w: Math.min(src.width, Math.ceil((right - left) * fx + pad * 2)),
+      h: Math.min(src.height, Math.ceil((bottom - top) * fy + pad * 2))
+    };
+  }
+
+  document.getElementById('autoCropBtn').addEventListener('click', () => {
+    const bounds = autoCropBounds(workCanvas);
+    if (!bounds){ toast('Could not find a clear border to trim', 'error'); return; }
+    preCropCanvas = workCanvas;
+    const cropped = document.createElement('canvas');
+    cropped.width = bounds.w; cropped.height = bounds.h;
+    cropped.getContext('2d').drawImage(workCanvas, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h);
+    workCanvas = cropped;
+    document.getElementById('undoCropBtn').disabled = false;
+    refreshView();
+    toast('Border trimmed');
+  });
+  document.getElementById('undoCropBtn').addEventListener('click', () => {
+    if (!preCropCanvas) return;
+    workCanvas = preCropCanvas;
+    preCropCanvas = null;
+    document.getElementById('undoCropBtn').disabled = true;
+    refreshView();
+  });
+
+  /* ---- 2. deskew ---- */
+  function estimateSkewAngle(src){
+    const maxDim = 260;
+    const scale = Math.min(1, maxDim / Math.max(src.width, src.height));
+    const w = Math.max(1, Math.round(src.width * scale));
+    const h = Math.max(1, Math.round(src.height * scale));
+    const small = document.createElement('canvas'); small.width = w; small.height = h;
+    const sctx = small.getContext('2d');
+    sctx.drawImage(src, 0, 0, w, h);
+    const data = sctx.getImageData(0, 0, w, h).data;
+    const lum = new Float64Array(w * h);
+    let sum = 0;
+    for (let i = 0; i < w * h; i++){
+      const v = 0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2];
+      lum[i] = v; sum += v;
+    }
+    const mean = sum / (w * h);
+    const threshold = mean * 0.82;
+
+    const cx = w / 2, cy = h / 2;
+    let bestAngle = 0, bestScore = -Infinity;
+    for (let a = -10; a <= 10; a += 0.5){
+      const rad = a * Math.PI / 180;
+      const cosA = Math.cos(-rad), sinA = Math.sin(-rad);
+      const rowSums = new Float64Array(h);
+      for (let y = 0; y < h; y++){
+        let s = 0;
+        const dy = y - cy;
+        for (let x = 0; x < w; x++){
+          const dx = x - cx;
+          const sx = cx + dx * cosA - dy * sinA;
+          const sy = cy + dx * sinA + dy * cosA;
+          if (sx >= 0 && sx < w && sy >= 0 && sy < h){
+            const v = lum[Math.round(sy) * w + Math.round(sx)];
+            if (v < threshold) s++;
+          }
+        }
+        rowSums[y] = s;
+      }
+      let m = 0; for (let y = 0; y < h; y++) m += rowSums[y]; m /= h;
+      let vs = 0; for (let y = 0; y < h; y++){ const d = rowSums[y] - m; vs += d * d; }
+      const score = vs / h;
+      if (score > bestScore){ bestScore = score; bestAngle = a; }
+    }
+    return bestAngle;
+  }
+
+  function rotateWorkCanvas(deg){
+    if (!deg) return;
+    const rad = deg * Math.PI / 180;
+    const w = workCanvas.width, h = workCanvas.height;
+    const newW = Math.round(Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad)));
+    const newH = Math.round(Math.abs(w * Math.sin(rad)) + Math.abs(h * Math.cos(rad)));
+    const rotated = document.createElement('canvas');
+    rotated.width = newW; rotated.height = newH;
+    const ctx = rotated.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, newW, newH);
+    ctx.translate(newW / 2, newH / 2);
+    ctx.rotate(rad);
+    ctx.drawImage(workCanvas, -w / 2, -h / 2);
+    workCanvas = rotated;
+  }
+
+  document.getElementById('autoStraightenBtn').addEventListener('click', () => {
+    document.getElementById('detectLine').textContent = 'Analysing…';
+    setTimeout(() => {
+      const angle = estimateSkewAngle(workCanvas);
+      if (Math.abs(angle) < 0.3){
+        document.getElementById('detectLine').textContent = 'Already looks straight — no rotation applied.';
+        return;
+      }
+      rotateWorkCanvas(angle);
+      refreshView();
+      document.getElementById('detectLine').textContent = `Straightened by ${angle > 0 ? '+' : ''}${angle}°.`;
+    }, 30);
+  });
+
+  document.getElementById('fineAngle').addEventListener('input', (e) => {
+    document.getElementById('angleVal').textContent = e.target.value + '°';
+    viewCanvas.style.transform = `rotate(${e.target.value}deg)`;
+  });
+  document.getElementById('applyAngle').addEventListener('click', () => {
+    const deg = parseFloat(document.getElementById('fineAngle').value) || 0;
+    viewCanvas.style.transform = '';
+    if (deg === 0) return;
+    rotateWorkCanvas(deg);
+    document.getElementById('fineAngle').value = 0;
+    document.getElementById('angleVal').textContent = '0°';
+    refreshView();
+    toast('Adjustment applied');
+  });
+
+  /* ---- 3. export ---- */
+  document.getElementById('fmt').addEventListener('change', (e) => {
+    document.getElementById('qualityField').style.display = e.target.value === 'image/png' ? 'none' : '';
+  });
+  document.getElementById('quality').addEventListener('input', (e) => {
+    document.getElementById('qualityVal').textContent = e.target.value + '%';
+  });
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const fmt = document.getElementById('fmt').value;
+    const quality = parseInt(document.getElementById('quality').value, 10) / 100;
+    const ext = fmt === 'image/png' ? 'png' : (fmt === 'image/webp' ? 'webp' : 'jpg');
+    workCanvas.toBlob(blob => {
+      if (!blob){ toast('Could not export this format on this browser', 'error'); return; }
+      const base = (currentFile.name || 'page').replace(/\.[^.]+$/, '');
+      downloadBlob(blob, `${base}-straightened.${ext}`);
+    }, fmt, fmt === 'image/png' ? undefined : quality);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amount to Words | Arzi Lab</title>
+<meta name="description" content="Convert a numeric amount into words, Indian numbering system, for affidavits and financial documents.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .words-out{
+    font-family: var(--serif); font-size: 1.2rem; line-height: 1.6;
+    background: var(--paper); border: 1px solid var(--paper-line); border-radius: var(--radius-s);
+    padding: 1rem 1.2rem; min-height: 3.4em;
+  }
+  .copy-row{ display:flex; justify-content:flex-end; margin-top:.6rem; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Amount to words</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Amount to words</h1>
+  <p class="lab-sub">Type a figure and get it in words — Indian numbering (lakh, crore) — for affidavits, vouchers and financial annexures.</p>
+
+  <div class="bench">
+    <div class="field">
+      <label for="amountIn">Amount (₹)</label>
+      <input type="text" id="amountIn" inputmode="decimal" placeholder="e.g. 1250000 or 12,50,000.50" autocomplete="off">
+      <div class="hint">Commas are ignored — type digits with an optional decimal point for paise.</div>
+    </div>
+
+    <div class="words-out" id="wordsOut">Rupees Zero Only</div>
+    <div class="copy-row">
+      <button class="btn secondary" id="copyBtn">Copy</button>
+    </div>
+  </div>
+</main>
+
+<script src="../lab-common.js"></script>
+<script>
+  const ones = ['', 'One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+    'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+  function twoDigits(n){
+    if (n < 20) return ones[n];
+    return tens[Math.floor(n/10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+  }
+  function threeDigits(n){
+    let str = '';
+    if (n >= 100){
+      str += ones[Math.floor(n/100)] + ' Hundred';
+      n = n % 100;
+      if (n) str += ' ';
+    }
+    str += twoDigits(n);
+    return str.trim();
+  }
+  function integerToWords(num){
+    if (num === 0) return 'Zero';
+    let crore = Math.floor(num / 10000000); num %= 10000000;
+    let lakh = Math.floor(num / 100000); num %= 100000;
+    let thousand = Math.floor(num / 1000); num %= 1000;
+    let hundred = num;
+    const parts = [];
+    if (crore) parts.push(threeDigits(crore) + ' Crore');
+    if (lakh) parts.push(twoDigits(lakh) + ' Lakh');
+    if (thousand) parts.push(twoDigits(thousand) + ' Thousand');
+    if (hundred) parts.push(threeDigits(hundred));
+    return parts.join(' ');
+  }
+
+  function amountToWords(raw){
+    const cleaned = raw.replace(/,/g, '').trim();
+    if (!cleaned) return 'Rupees Zero Only';
+    const num = parseFloat(cleaned);
+    if (isNaN(num) || num < 0) return 'Enter a valid positive amount';
+    if (num > 999999999999) return 'Amount is too large for this converter';
+
+    const rupees = Math.floor(num);
+    const paise = Math.round((num - rupees) * 100);
+
+    let out = 'Rupees ' + integerToWords(rupees);
+    if (paise > 0) out += ' and Paise ' + twoDigits(paise);
+    out += ' Only';
+    return out;
+  }
+
+  const input = document.getElementById('amountIn');
+  const out = document.getElementById('wordsOut');
+
+  function update(){ out.textContent = amountToWords(input.value); }
+  input.addEventListener('input', update);
+  update();
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(out.textContent).then(() => toast('Copied')).catch(() => toast('Could not copy', 'error'));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Header &amp; Footer | Arzi Lab</title>
+<meta name="description" content="Add a letterhead, case number or court name across the header and footer of every page of a PDF, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .three-col{ display:flex; gap:.8rem; flex-wrap:wrap; }
+  .three-col .field{ flex:1; min-width:150px; }
+  .band-title{ font-family:var(--serif); font-size:1rem; font-weight:600; margin:1.4rem 0 .8rem; }
+  .band-title:first-child{ margin-top:0; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Header &amp; footer</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Header &amp; footer</h1>
+  <p class="lab-sub">Add up to three pieces of running text along the top and bottom of every page — a letterhead, case number, court name, or anything else that should repeat.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.4rem;">
+      <div class="field" id="pageCountLine" style="color:var(--ink-soft); font-size:.85rem;"></div>
+
+      <div class="band-title">Header</div>
+      <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem; margin-bottom:.9rem;">
+        <input type="checkbox" id="headerOn" checked> Add a header
+      </label>
+      <div class="three-col" id="headerFields">
+        <div class="field"><label for="hLeft">Left</label><input type="text" id="hLeft" placeholder="e.g. District Litigation Office"></div>
+        <div class="field"><label for="hCenter">Centre</label><input type="text" id="hCenter" placeholder="e.g. Court of the District Judge"></div>
+        <div class="field"><label for="hRight">Right</label><input type="text" id="hRight" placeholder="e.g. Case No. 123/2026"></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem; margin-top:.8rem;">
+        <input type="checkbox" id="hRule" checked> Rule line under the header
+      </label>
+
+      <div class="band-title">Footer</div>
+      <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem; margin-bottom:.9rem;">
+        <input type="checkbox" id="footerOn"> Add a footer
+      </label>
+      <div class="three-col" id="footerFields">
+        <div class="field"><label for="fLeft">Left</label><input type="text" id="fLeft" placeholder="e.g. Kupwara, J&amp;K"></div>
+        <div class="field"><label for="fCenter">Centre</label><input type="text" id="fCenter" placeholder=""></div>
+        <div class="field"><label for="fRight">Right</label><input type="text" id="fRight" placeholder="e.g. Confidential"></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:.5rem; font-size:.85rem; margin-top:.8rem;">
+        <input type="checkbox" id="fRule"> Rule line above the footer
+      </label>
+
+      <div class="row" style="margin-top:1.2rem;">
+        <div class="field">
+          <label for="fontSize">Font size</label>
+          <input type="number" id="fontSize" value="9" min="6" max="18">
+        </div>
+        <div class="field">
+          <label for="onFirstPage">Apply to</label>
+          <select id="onFirstPage">
+            <option value="all" selected>Every page</option>
+            <option value="skipfirst">Every page except the first</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn seal" id="runBtn" style="margin-top:.6rem;">Apply &amp; download</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download PDF</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  const optionsBox = document.getElementById('options');
+  let currentFile = null, originalBytes = null, pageCount = 0, resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+
+    originalBytes = await file.arrayBuffer();
+    try {
+      const { PDFDocument } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      pageCount = doc.getPageCount();
+      document.getElementById('pageCountLine').textContent = `${pageCount} page${pageCount === 1 ? '' : 's'} in this file`;
+      optionsBox.style.display = '';
+      document.getElementById('resultBox').classList.remove('show');
+    } catch (e){
+      toast('Could not read this PDF', 'error');
+    }
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const headerOn = document.getElementById('headerOn').checked;
+    const footerOn = document.getElementById('footerOn').checked;
+    if (!headerOn && !footerOn){ toast('Turn on a header or footer first', 'error'); return; }
+
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    document.getElementById('statusLine').textContent = 'Stamping pages…';
+
+    try {
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+      const font = await doc.embedFont(StandardFonts.Helvetica);
+      const size = parseFloat(document.getElementById('fontSize').value) || 9;
+      const margin = 30;
+      const ink = rgb(0.15, 0.13, 0.1);
+      const ruleColor = rgb(0.6, 0.56, 0.44);
+      const skipFirst = document.getElementById('onFirstPage').value === 'skipfirst';
+
+      const hL = document.getElementById('hLeft').value.trim();
+      const hC = document.getElementById('hCenter').value.trim();
+      const hR = document.getElementById('hRight').value.trim();
+      const hRule = document.getElementById('hRule').checked;
+      const fL = document.getElementById('fLeft').value.trim();
+      const fC = document.getElementById('fCenter').value.trim();
+      const fR = document.getElementById('fRight').value.trim();
+      const fRule = document.getElementById('fRule').checked;
+
+      function drawBand(page, y, left, center, right){
+        const { width } = page.getSize();
+        if (left) page.drawText(left, { x: margin, y, size, font, color: ink });
+        if (center){
+          const w = font.widthOfTextAtSize(center, size);
+          page.drawText(center, { x: (width - w) / 2, y, size, font, color: ink });
+        }
+        if (right){
+          const w = font.widthOfTextAtSize(right, size);
+          page.drawText(right, { x: width - margin - w, y, size, font, color: ink });
+        }
+      }
+
+      const pages = doc.getPages();
+      pages.forEach((page, i0) => {
+        if (skipFirst && i0 === 0) return;
+        const { width, height } = page.getSize();
+        if (headerOn && (hL || hC || hR)){
+          const y = height - margin;
+          drawBand(page, y, hL, hC, hR);
+          if (hRule) page.drawLine({
+            start: { x: margin, y: y - 8 }, end: { x: width - margin, y: y - 8 },
+            thickness: 0.75, color: ruleColor
+          });
+        }
+        if (footerOn && (fL || fC || fR)){
+          const y = margin - size * 0.2;
+          drawBand(page, y, fL, fC, fR);
+          if (fRule) page.drawLine({
+            start: { x: margin, y: y + size + 6 }, end: { x: width - margin, y: y + size + 6 },
+            thickness: 0.75, color: ruleColor
+          });
+        }
+      });
+
+      setProgress(document.getElementById('progress'), 100);
+      const bytes = await doc.save();
+      resultBlob = new Blob([bytes], { type: 'application/pdf' });
+
+      document.getElementById('resultTitle').textContent = 'Header & footer added';
+      document.getElementById('resultMeta').textContent = `${pageCount} pages · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('statusLine').textContent = '';
+    } catch (e){
+      console.error(e);
+      toast('Could not stamp this PDF', 'error');
+      document.getElementById('statusLine').textContent = '';
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob){
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      downloadBlob(resultBlob, `${base}-letterhead.pdf`);
+    }
+  });
+</script>
+</body>
+</html>

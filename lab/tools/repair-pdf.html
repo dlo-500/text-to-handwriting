@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Repair PDF | Arzi Lab</title>
+<meta name="description" content="Fix a damaged or corrupted PDF and recover what can be read from it, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / Repair PDF</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">Repair PDF</h1>
+  <p class="lab-sub">For a PDF that won't open properly, or that other tools reject. This tries a clean structural rebuild first; if the file is too damaged for that, it falls back to recovering each page as an image.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="dropzone" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">One file at a time</div>
+    </div>
+    <div id="fileChipHolder"></div>
+
+    <div id="options" style="display:none; margin-top:1.2rem;">
+      <button class="btn seal" id="runBtn">Attempt repair</button>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="result" id="resultBox">
+        <div class="r-title" id="resultTitle"></div>
+        <div class="r-meta" id="resultMeta"></div>
+        <div class="btn-row"><button class="btn" id="downloadBtn">Download repaired PDF</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lab-note">If both methods fail, the file is too damaged to recover in a browser — a specialised desktop repair tool may still be able to salvage it.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const dz = document.getElementById('dz');
+  const fileInput = document.getElementById('fileInput');
+  let currentFile = null, originalBytes = null, resultBlob = null;
+
+  wireDropzone(dz, fileInput, { onFiles: (files) => loadFile(files[0]) });
+
+  async function loadFile(file){
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')){
+      toast('Please choose a PDF file', 'error'); return;
+    }
+    currentFile = file;
+    document.getElementById('fileChipHolder').innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    document.getElementById('fileChipHolder').appendChild(chip);
+    originalBytes = await file.arrayBuffer();
+    document.getElementById('options').style.display = '';
+    document.getElementById('resultBox').classList.remove('show');
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if (!originalBytes){ toast('Choose a PDF first', 'error'); return; }
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true;
+    setProgress(document.getElementById('progress'), 10);
+    document.getElementById('statusLine').textContent = 'Trying a structural rebuild…';
+
+    let method = null;
+
+    // Method 1: reload + resave with pdf-lib. This alone repairs many
+    // structural issues (broken xref tables, stray objects) because
+    // saving always rewrites a clean file from scratch.
+    try {
+      const { PDFDocument } = PDFLib;
+      const doc = await PDFDocument.load(originalBytes, {
+        ignoreEncryption: true, throwOnInvalidObject: false, updateMetadata: false
+      });
+      if (doc.getPageCount() > 0){
+        const bytes = await doc.save();
+        resultBlob = new Blob([bytes], { type: 'application/pdf' });
+        method = 'structure';
+      }
+    } catch (e){ console.warn('Structural rebuild failed, trying page recovery…', e); }
+
+    // Method 2: fall back to pdf.js (very lenient parser) rendering each
+    // page to an image, then rebuilding a fresh PDF from those images.
+    if (!method){
+      try {
+        document.getElementById('statusLine').textContent = 'Recovering pages as images…';
+        const pdfDocJs = await pdfjsLib.getDocument({ data: originalBytes.slice(0), stopAtErrors: false }).promise;
+        const numPages = pdfDocJs.numPages;
+        const { PDFDocument } = PDFLib;
+        const outDoc = await PDFDocument.create();
+
+        for (let i = 0; i < numPages; i++){
+          const page = await pdfDocJs.getPage(i + 1);
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width; canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
+          const jpgBytes = new Uint8Array(await blob.arrayBuffer());
+          const jpg = await outDoc.embedJpg(jpgBytes);
+          const pt = 72 / 96;
+          const pw = canvas.width / 2 * pt, ph = canvas.height / 2 * pt;
+          const outPage = outDoc.addPage([pw, ph]);
+          outPage.drawImage(jpg, { x: 0, y: 0, width: pw, height: ph });
+          setProgress(document.getElementById('progress'), 10 + Math.round((i / numPages) * 80));
+        }
+
+        const bytes = await outDoc.save();
+        resultBlob = new Blob([bytes], { type: 'application/pdf' });
+        method = 'rebuild';
+      } catch (e){ console.error('Page recovery also failed', e); }
+    }
+
+    setProgress(document.getElementById('progress'), 100);
+    document.getElementById('statusLine').textContent = '';
+
+    if (!method){
+      toast('This file is too damaged to recover', 'error');
+    } else {
+      const base = (currentFile.name || 'document').replace(/\.pdf$/i, '');
+      document.getElementById('resultTitle').textContent =
+        method === 'structure' ? 'Repaired — structure rebuilt' : 'Recovered — pages rebuilt as images';
+      document.getElementById('resultMeta').textContent =
+        method === 'structure'
+          ? `Text and formatting preserved · ${formatBytes(resultBlob.size)}`
+          : `The original structure couldn't be salvaged directly, so each page was recovered as an image — text is no longer selectable · ${formatBytes(resultBlob.size)}`;
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('resultBox').dataset.name = `${base}-repaired.pdf`;
+    }
+    btn.disabled = false;
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if (resultBlob) downloadBlob(resultBlob, document.getElementById('resultBox').dataset.name || 'repaired.pdf');
+  });
+</script>
+</body>
+</html>

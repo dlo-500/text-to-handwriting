@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code | Arzi Lab</title>
+<meta name="description" content="Generate a QR code image, or decode one from a photo, right in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../lab.css">
+<style>
+  .tab-row{ display:flex; gap:.5rem; margin-bottom:1.2rem; }
+  .tab-btn{
+    border:1px solid var(--paper-line); background:var(--paper-white); border-radius:var(--radius-s);
+    padding:.5rem 1rem; font-size:.85rem; font-family:var(--sans); font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .tab-btn.active{ border-color:var(--seal); color:var(--seal); background:var(--seal-dim); }
+  .tab-pane[hidden]{ display:none; }
+  #qrPreview{ display:flex; justify-content:center; padding:1.4rem; background:#fff; border:1px solid var(--paper-line); border-radius:var(--radius-s); }
+  #qrPreview img, #qrPreview canvas{ image-rendering:pixelated; }
+  .decode-result{
+    margin-top:1rem; padding:1rem; background:var(--success-dim); border:1px solid #c3d6c6; border-radius:var(--radius-s);
+    display:none; word-break:break-all; font-size:.92rem;
+  }
+  .decode-result.show{ display:block; }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="../lab.html">The Lab</a> / QR code</span>
+</header>
+
+<main class="lab-main">
+  <h1 class="lab-title">QR code</h1>
+  <p class="lab-sub">Turn a link or a short note into a scannable code, or read one back from a photo.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <div class="bench">
+    <div class="tab-row">
+      <button class="tab-btn active" data-tab="gen">Generate</button>
+      <button class="tab-btn" data-tab="dec">Decode</button>
+    </div>
+
+    <div class="tab-pane" data-pane="gen">
+      <div class="field">
+        <label for="qrText">Text or URL</label>
+        <textarea id="qrText" rows="3" placeholder="https://example.com or any short text">https://</textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="qrSize">Size</label>
+          <select id="qrSize">
+            <option value="200">200 × 200</option>
+            <option value="300" selected>300 × 300</option>
+            <option value="500">500 × 500</option>
+            <option value="800">800 × 800</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="qrLevel">Error correction</label>
+          <select id="qrLevel">
+            <option value="L">Low</option>
+            <option value="M" selected>Medium</option>
+            <option value="Q">Quartile</option>
+            <option value="H">High (best if printing small)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn seal" id="genBtn">Generate</button>
+
+      <div id="qrPreview" style="display:none; margin-top:1.2rem;"></div>
+      <div class="btn-row" id="genActions" style="display:none;">
+        <button class="btn" id="downloadQr">Download PNG</button>
+      </div>
+    </div>
+
+    <div class="tab-pane" data-pane="dec" hidden>
+      <div class="dropzone" id="dzImg" tabindex="0">
+        <input type="file" id="imgInput" accept="image/*">
+        <div class="dz-title">Drop a photo of a QR code, or tap to choose</div>
+        <div class="dz-sub">A camera photo works fine — sharper and better-lit is faster</div>
+      </div>
+      <div id="chipImg"></div>
+      <div class="status-line" id="decodeStatus"></div>
+      <div class="decode-result" id="decodeResult"></div>
+      <div class="btn-row" id="decodeActions" style="display:none;">
+        <button class="btn secondary" id="copyDecoded">Copy text</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="../lab-common.js"></script>
+<script>
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tab-pane').forEach(p => p.hidden = (p.dataset.pane !== btn.dataset.tab));
+    });
+  });
+
+  /* ---- generate ---- */
+  let currentQr = null;
+  document.getElementById('genBtn').addEventListener('click', () => {
+    const text = document.getElementById('qrText').value.trim();
+    if (!text){ toast('Enter some text or a URL', 'error'); return; }
+    const size = parseInt(document.getElementById('qrSize').value, 10);
+    const level = document.getElementById('qrLevel').value;
+
+    const wrap = document.getElementById('qrPreview');
+    wrap.innerHTML = '';
+    wrap.style.display = 'flex';
+    currentQr = new QRCode(wrap, {
+      text, width: size, height: size,
+      colorDark: '#1c1712', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel[level]
+    });
+    document.getElementById('genActions').style.display = '';
+  });
+
+  document.getElementById('downloadQr').addEventListener('click', () => {
+    const wrap = document.getElementById('qrPreview');
+    const canvas = wrap.querySelector('canvas');
+    if (!canvas){ toast('Generate a code first', 'error'); return; }
+    canvas.toBlob(blob => downloadBlob(blob, 'qr-code.png'));
+  });
+
+  /* ---- decode ---- */
+  const dzImg = document.getElementById('dzImg');
+  wireDropzone(dzImg, document.getElementById('imgInput'), { onFiles: (files) => decodeFile(files[0]) });
+
+  function decodeFile(file){
+    if (!file || !file.type.startsWith('image/')){ toast('Please choose an image file', 'error'); return; }
+    const holder = document.getElementById('chipImg');
+    holder.innerHTML = '';
+    const chip = el('div', 'file-chip');
+    chip.innerHTML = `<span class="name">${file.name}</span><span class="meta">${formatBytes(file.size)}</span>`;
+    holder.appendChild(chip);
+
+    document.getElementById('decodeResult').classList.remove('show');
+    document.getElementById('decodeActions').style.display = 'none';
+    document.getElementById('decodeStatus').textContent = 'Reading…';
+
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const maxDim = 1600;
+      const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+      c.width = Math.round(img.naturalWidth * scale);
+      c.height = Math.round(img.naturalHeight * scale);
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      const imageData = ctx.getImageData(0, 0, c.width, c.height);
+      const result = jsQR(imageData.data, c.width, c.height);
+      document.getElementById('decodeStatus').textContent = '';
+      if (result && result.data){
+        const box = document.getElementById('decodeResult');
+        box.textContent = result.data;
+        box.classList.add('show');
+        document.getElementById('decodeActions').style.display = '';
+        document.getElementById('copyDecoded').onclick = () => {
+          navigator.clipboard.writeText(result.data).then(() => toast('Copied'));
+        };
+      } else {
+        toast('No QR code found in that image', 'error');
+      }
+    };
+    img.onerror = () => { document.getElementById('decodeStatus').textContent = ''; toast('Could not read that image', 'error'); };
+    img.src = url;
+  }
+</script>
+</body>
+</html>
