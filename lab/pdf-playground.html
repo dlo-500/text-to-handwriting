@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Playground | Arzi Lab</title>
+<meta name="description" content="Put a PDF on the desk once, then compress, merge, split, sign, erase, convert and more. Every tool opens with your file already loaded. Runs entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="lab.css">
+<style>
+  .lab-main.pg{ max-width: 1080px; }
+  .pg-h{ font-family: var(--serif); font-size: 1.15rem; font-weight: 600; margin: 0 0 .8rem; display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; }
+  .pg-h small{ font-family: var(--sans); font-size:.78rem; font-weight:500; color: var(--ink-soft); }
+  [hidden]{ display:none !important; }
+
+  /* ── desk ───────────────────────────────────────────────── */
+  .pg-desk{ margin-bottom: 2.4rem; }
+  .pg-dz{ padding: 2.8rem 1.5rem; background: var(--paper-white); position: relative; transition: border-color .2s, background .2s, transform .2s; }
+  .pg-dz:hover{ transform: translateY(-2px); }
+  .pg-dz-ico{ width:58px; height:58px; margin:0 auto 1rem; border-radius:50%; display:grid; place-items:center; background:var(--seal-dim); color:var(--seal); }
+  .pg-dz-ico svg{ width:28px; height:28px; }
+  .pg-dz .dz-title{ font-size: 1.25rem; }
+  .pg-start{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .6rem; margin-top:1rem; font-size:.84rem; color:var(--ink-soft); }
+  .pg-start a{ text-decoration:none; border:1px solid var(--paper-line); background:var(--paper-white); padding:.32rem .75rem; border-radius:999px; font-weight:500; color:var(--ink); transition:border-color .15s, color .15s; }
+  .pg-start a:hover{ border-color:var(--seal); color:var(--seal); }
+
+  .pg-resume{ margin-top:1rem; padding:.8rem 1rem; border:1px solid var(--brass-dim); background:rgba(228,214,174,.28); border-radius:var(--radius-m); }
+  .pg-resume .rs-t{ font-size:.78rem; font-weight:600; color:var(--brass); margin-bottom:.45rem; }
+  .pg-resume .rs-list{ display:flex; flex-wrap:wrap; gap:.5rem; }
+  .rs-chip{ display:inline-flex; align-items:center; gap:.5rem; border:1px solid var(--paper-line); background:var(--paper-white); border-radius:var(--radius-s); padding:.4rem .7rem; font:inherit; font-size:.82rem; cursor:pointer; color:var(--ink); text-align:left; }
+  .rs-chip:hover{ border-color:var(--seal); }
+  .rs-chip b{ font-weight:600; overflow-wrap:anywhere; }
+  .rs-chip span{ color:var(--ink-soft); font-size:.74rem; white-space:nowrap; }
+
+  .pg-card{
+    position:relative; display:flex; gap:1.3rem; align-items:flex-start; padding:1.2rem 1.3rem;
+    background:var(--paper-white); border:1px solid var(--paper-line); border-radius:var(--radius-m);
+    box-shadow:0 10px 28px var(--shadow-soft); animation: pgIn .35s ease both;
+  }
+  .pg-card::before{ content:""; position:absolute; top:-9px; left:26px; width:46px; height:18px; background:var(--brass-dim); clip-path:polygon(8% 0,92% 0,100% 100%,0 100%); opacity:.9; }
+  @keyframes pgIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:none; } }
+  .pg-thumb{ flex:none; width:118px; min-height:150px; background:#fff; border:1px solid var(--paper-dim); box-shadow:0 4px 12px var(--shadow); display:grid; place-items:center; }
+  .pg-thumb canvas{ display:block; width:100%; height:auto; }
+  .pg-meta{ min-width:0; flex:1; }
+  .pg-name{ font-family:var(--serif); font-size:1.2rem; font-weight:600; overflow-wrap:anywhere; margin:0 0 .3rem; }
+  .pg-facts{ display:flex; flex-wrap:wrap; gap:.4rem .5rem; margin-bottom:.9rem; }
+  .pg-badge{ font-size:.74rem; font-weight:600; padding:.22rem .6rem; border-radius:999px; background:var(--paper); border:1px solid var(--paper-line); color:var(--ink-soft); }
+  .pg-badge.good{ background:var(--success-dim); border-color:transparent; color:var(--success); }
+  .pg-badge.warn{ background:var(--seal-dim); border-color:transparent; color:var(--seal); }
+  .pg-actions{ display:flex; flex-wrap:wrap; gap:.5rem; }
+  .pg-actions .btn{ padding:.5rem .95rem; font-size:.84rem; }
+
+  .pg-pages{ margin-top:1.2rem; }
+  .pg-pbar{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem .6rem; margin-bottom:.8rem; }
+  .pg-pbar .sp{ flex:1; }
+  .pg-pbar .count{ font-size:.8rem; color:var(--ink-soft); background:var(--paper-white); border:1px solid var(--paper-line); border-radius:999px; padding:.18rem .7rem; }
+  .pg-pbar .btn{ padding:.3rem .7rem; font-size:.78rem; }
+  .pg-pbar .range{ width:150px; padding:.32rem .55rem; font:inherit; font-size:.8rem; border:1px solid var(--paper-line); border-radius:var(--radius-s); background:var(--paper-white); }
+  .pg-pbar .range.bad{ border-color:var(--seal); background:var(--seal-dim); }
+  .pg-sel-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; padding:.7rem .9rem; margin-bottom:.9rem; border:1px solid var(--seal-dim); background:rgba(231,201,194,.35); border-radius:var(--radius-m); }
+  .pg-sel-actions .lbl{ font-size:.84rem; font-weight:600; color:var(--seal); margin-right:auto; }
+  .pg-sel-actions .btn{ padding:.4rem .85rem; font-size:.8rem; }
+  .pg-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:.9rem; max-height:520px; overflow:auto; padding:.3rem; }
+  .pg-tile{ position:relative; background:var(--paper-white); border:2px solid var(--paper-line); border-radius:var(--radius-s); padding:.35rem .35rem .3rem; cursor:pointer; text-align:center; transition:border-color .12s, transform .12s, box-shadow .12s; user-select:none; }
+  .pg-tile:hover{ transform:translateY(-2px); box-shadow:0 6px 14px var(--shadow-soft); }
+  .pg-tile .cv{ background:#fff; min-height:90px; display:grid; place-items:center; border:1px solid var(--paper-dim); }
+  .pg-tile canvas{ width:100%; height:auto; display:block; }
+  .pg-tile .no{ font-size:.74rem; color:var(--ink-soft); margin-top:.3rem; }
+  .pg-tile.on{ border-color:var(--seal); box-shadow:0 0 0 3px var(--seal-dim); }
+  .pg-tile .tick{ position:absolute; top:.45rem; left:.45rem; width:22px; height:22px; border-radius:50%; background:#fff; border:2px solid var(--paper-line); display:grid; place-items:center; font-size:.8rem; color:#fff; }
+  .pg-tile.on .tick{ background:var(--seal); border-color:var(--seal); }
+  .pg-tile.on .tick::after{ content:"✓"; }
+  .pg-help{ font-size:.78rem; color:var(--ink-soft); margin:.5rem 0 0; }
+
+  /* ── suggestions ────────────────────────────────────────── */
+  .pg-suggest{ margin-bottom:2.4rem; }
+  .pg-sgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:.9rem; }
+  .sugg{ display:flex; flex-direction:column; gap:.4rem; text-decoration:none; color:var(--ink); background:var(--paper-white); border:1px solid var(--paper-line); border-left:4px solid var(--seal); border-radius:var(--radius-m); padding:.9rem 1rem; transition:transform .15s, box-shadow .15s; }
+  .sugg:hover{ transform:translateY(-3px); box-shadow:0 10px 22px var(--shadow-soft); }
+  .sugg .s-name{ font-family:var(--serif); font-weight:600; font-size:1.02rem; }
+  .sugg .s-why{ font-size:.82rem; color:var(--ink-soft); }
+  .sugg .s-go{ margin-top:auto; font-size:.8rem; font-weight:600; color:var(--seal); }
+
+  /* ── tool finder ────────────────────────────────────────── */
+  .pg-bar{ position:sticky; top:0; z-index:20; background:var(--paper); padding:.7rem 0 .8rem; margin:0 0 .6rem; border-bottom:1px solid var(--paper-line); }
+  .pg-search{ position:relative; }
+  .pg-search svg{ position:absolute; left:.85rem; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--ink-faint); pointer-events:none; }
+  .pg-search input{ width:100%; font:inherit; font-size:1rem; padding:.8rem 3.2rem .8rem 2.6rem; border:1px solid var(--paper-line); border-radius:var(--radius-m); background:var(--paper-white); color:var(--ink); }
+  .pg-search input:focus{ outline:none; border-color:var(--seal); box-shadow:0 0 0 3px var(--seal-dim); }
+  .pg-search kbd{ position:absolute; right:.8rem; top:50%; transform:translateY(-50%); font:600 .72rem var(--sans); color:var(--ink-soft); background:var(--paper); border:1px solid var(--paper-line); border-bottom-width:2px; border-radius:4px; padding:.05rem .45rem; }
+  .pg-chips{ display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
+  .chip{ font:inherit; font-size:.8rem; font-weight:500; padding:.38rem .85rem; border-radius:999px; border:1px solid var(--paper-line); background:var(--paper-white); color:var(--ink); cursor:pointer; transition:all .15s; }
+  .chip:hover{ border-color:var(--ink-faint); }
+  .chip.on{ background:var(--seal); border-color:var(--seal); color:#fff; }
+  .pg-using{ display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; margin:.9rem 0 1.4rem; font-size:.84rem; color:var(--ink-soft); }
+  .pg-using b{ color:var(--ink); }
+  .pg-using .pill{ background:var(--success-dim); color:var(--success); font-weight:600; padding:.2rem .65rem; border-radius:999px; font-size:.78rem; }
+  .pg-using .pill.none{ background:var(--paper-dim); color:var(--ink-soft); }
+
+  .reg-section{ margin-bottom:2rem; }
+  .reg-tab{ display:inline-block; font-size:.78rem; font-weight:600; color:var(--brass); background:var(--brass-dim); padding:.3rem .8rem .3rem .7rem; border-radius:0 var(--radius-s) 0 0; clip-path:polygon(0 0,100% 0,92% 100%,0 100%); }
+  .reg-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:0; padding:0 1px 1px 0; }
+  .tool{ position:relative; display:flex; gap:.85rem; align-items:flex-start; padding:1rem 1.1rem; background:var(--paper-white); color:var(--ink); text-decoration:none; transition:background .15s; border:1px solid var(--paper-line); margin:0 -1px -1px 0; }
+  .tool:hover, .tool:focus-visible{ background:var(--paper); }
+  .t-ico{ flex:none; width:40px; height:40px; border-radius:50%; background:var(--seal-dim); color:var(--seal); display:grid; place-items:center; transition:transform .2s, background .2s, color .2s; }
+  .t-ico svg{ width:20px; height:20px; }
+  .tool:hover .t-ico{ background:var(--seal); color:#fff; transform:rotate(-6deg) scale(1.06); }
+  .t-body{ min-width:0; flex:1; }
+  .t-name{ display:block; font-family:var(--serif); font-weight:600; font-size:1.02rem; margin-bottom:.15rem; padding-right:1.6rem; }
+  .t-desc{ display:block; font-size:.82rem; color:var(--ink-soft); line-height:1.45; }
+  .t-go{ display:block; margin-top:.5rem; font-size:.76rem; font-weight:600; color:var(--ink-faint); transition:color .15s; }
+  .tool:hover .t-go{ color:var(--seal); }
+  .tool.with-file .t-go{ color:var(--success); }
+  .t-tag{ display:inline-block; margin-left:.4rem; font:600 .66rem var(--sans); color:var(--brass); background:var(--brass-dim); padding:.08rem .45rem; border-radius:999px; vertical-align:2px; }
+  .t-fav{ position:absolute; top:.55rem; right:.55rem; border:0; background:none; font-size:1.05rem; line-height:1; color:var(--ink-faint); cursor:pointer; padding:.2rem .3rem; border-radius:4px; }
+  .t-fav:hover{ color:var(--brass); }
+  .t-fav.on{ color:var(--brass); }
+  .tool mark{ background:var(--brass-dim); color:inherit; border-radius:2px; padding:0 .08em; }
+  .pg-empty{ text-align:center; padding:2.4rem 1rem; color:var(--ink-soft); background:var(--paper-white); border:1px dashed var(--paper-line); border-radius:var(--radius-m); }
+  .pg-empty b{ color:var(--ink); }
+
+  .pg-recent{ display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; margin-bottom:1.6rem; font-size:.8rem; color:var(--ink-soft); }
+  .pg-recent a{ text-decoration:none; color:var(--ink); border:1px solid var(--paper-line); background:var(--paper-white); padding:.28rem .7rem; border-radius:999px; font-weight:500; }
+  .pg-recent a:hover{ border-color:var(--seal); color:var(--seal); }
+
+  .pg-foot{ margin-top:2.6rem; padding-top:1.2rem; border-top:1px dashed var(--paper-line); display:flex; flex-wrap:wrap; gap:.8rem 1.5rem; align-items:center; font-size:.8rem; color:var(--ink-soft); }
+  .pg-foot label{ display:inline-flex; align-items:center; gap:.45rem; cursor:pointer; }
+  .pg-foot button{ font:inherit; font-size:.8rem; background:none; border:0; color:var(--seal); text-decoration:underline; cursor:pointer; padding:0; }
+
+  .pg-veil{ position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; background:rgba(247,241,227,.92); backdrop-filter:blur(3px); }
+  .pg-veil.show{ display:flex; }
+  .pg-veil div{ border:3px dashed var(--seal); border-radius:12px; padding:3rem 4rem; font-family:var(--serif); font-size:1.5rem; color:var(--seal); background:var(--paper-white); text-align:center; }
+  .pg-veil small{ display:block; font:400 .9rem var(--sans); color:var(--ink-soft); margin-top:.4rem; }
+
+  @media (max-width: 640px){
+    .pg-card{ flex-direction:column; }
+    .pg-thumb{ width:100px; }
+    .reg-grid{ grid-template-columns:1fr; }
+    .pg-veil div{ padding:2rem 1.4rem; font-size:1.2rem; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+
+<header class="lab-topbar">
+  <a class="lab-brand" href="../index.html"><span class="mark">Ar<span>zi</span></span></a>
+  <span class="lab-crumb"><a href="lab.html">The Lab</a> / PDF Playground</span>
+  <a class="lab-back" href="lab.html">All Lab tools</a>
+</header>
+
+<main class="lab-main pg">
+  <h1 class="lab-title">PDF Playground</h1>
+  <p class="lab-sub">Put a PDF on the desk once. Look at it, pick the pages you need, make quick fixes — then open any tool with your file already inside. No uploading it again and again.</p>
+  <span class="lab-privacy">🔒 Runs on your device — nothing is uploaded</span>
+
+  <!-- ═════ the desk ═════ -->
+  <section class="pg-desk" aria-label="Your PDF">
+    <div class="dropzone pg-dz" id="dz" tabindex="0">
+      <input type="file" id="fileInput" accept="application/pdf">
+      <div class="pg-dz-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></div>
+      <div class="dz-title">Drop a PDF here, or tap to choose</div>
+      <div class="dz-sub">You can also drag a file anywhere on this page, or paste one with Ctrl+V</div>
+    </div>
+    <div class="pg-start" id="startRow">
+      <span>No PDF yet? Start from</span>
+      <a href="tools/image-to-pdf.html">Photos / images</a>
+      <a href="tools/camera-to-pdf.html">Camera</a>
+      <a href="tools/word-to-pdf.html">Word</a>
+      <a href="tools/excel-to-pdf.html">Excel</a>
+      <a href="tools/html-to-pdf.html">HTML</a>
+    </div>
+
+    <div class="pg-card" id="fileCard" hidden>
+      <div class="pg-thumb" id="thumb"></div>
+      <div class="pg-meta">
+        <h2 class="pg-name" id="fName"></h2>
+        <div class="pg-facts" id="fFacts"></div>
+        <div class="pg-actions">
+          <button class="btn secondary" id="replaceBtn">Choose another PDF</button>
+          <button class="btn secondary" id="downloadBtn">Download a copy</button>
+          <button class="btn secondary" id="undoBtn" hidden>↶ Undo</button>
+          <button class="btn secondary" id="removeBtn">Remove from desk</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pg-pages" id="pagesBox" hidden>
+      <h2 class="pg-h">Pages <small>Click pages to select them. Tools can then work on just those.</small></h2>
+      <div class="pg-pbar">
+        <button class="btn secondary" data-sel="all">All</button>
+        <button class="btn secondary" data-sel="none">None</button>
+        <button class="btn secondary" data-sel="invert">Invert</button>
+        <button class="btn secondary" data-sel="odd">Odd</button>
+        <button class="btn secondary" data-sel="even">Even</button>
+        <input type="text" class="range" id="rangeInput" placeholder="e.g. 1, 3-5" aria-label="Select pages by number" autocomplete="off">
+        <span class="sp"></span>
+        <span class="count" id="selCount"></span>
+      </div>
+      <div class="pg-sel-actions" id="selActions" hidden>
+        <span class="lbl" id="selLbl"></span>
+        <button class="btn secondary" data-op="extract" title="Keep only the selected pages">Keep only these</button>
+        <button class="btn secondary" data-op="delete" title="Remove the selected pages">Delete these</button>
+        <button class="btn secondary" data-op="rotate" title="Rotate the selected pages a quarter turn">Rotate ↻</button>
+        <button class="btn secondary" data-op="save" title="Download the selected pages as a new PDF">Download these</button>
+      </div>
+      <div class="pg-grid" id="grid"></div>
+      <p class="pg-help" id="gridHelp"></p>
+    </div>
+
+    <div class="pg-resume" id="resume" hidden>
+      <div class="rs-t">Pick up where you left off — kept on this device for 30 minutes</div>
+      <div class="rs-list" id="resumeList"></div>
+    </div>
+  </section>
+
+  <!-- ═════ suggestions ═════ -->
+  <section class="pg-suggest" id="suggest" hidden>
+    <h2 class="pg-h">Suggested for this file <small id="suggestWhy"></small></h2>
+    <div class="pg-sgrid" id="suggestGrid"></div>
+  </section>
+
+  <!-- ═════ tools ═════ -->
+  <section aria-label="PDF tools">
+    <div class="pg-bar">
+      <div class="pg-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search tools — try “compress”, “sign”, “word” or “blur”…" autocomplete="off" aria-label="Search tools">
+        <kbd>/</kbd>
+      </div>
+      <div class="pg-chips" id="chips" role="tablist" aria-label="Tool categories"></div>
+    </div>
+
+    <div class="pg-using" id="using" aria-live="polite"></div>
+    <div class="pg-recent" id="recent" hidden></div>
+    <div id="tools"></div>
+  </section>
+
+  <div class="pg-foot">
+    <label><input type="checkbox" id="rememberToggle"> Keep PDFs from other tools for 30 minutes so I can continue with them</label>
+    <button id="clearBtn">Clear everything held in this browser</button>
+  </div>
+  <p class="lab-note">Your PDF is read and edited inside this page. When you open a tool, the file travels only between tabs of this browser, and the copy is deleted the moment the tool picks it up.</p>
+</main>
+
+<div class="pg-veil" id="veil"><div>Drop your PDF to put it on the desk<small>It never leaves your device</small></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="lab-desk.js"></script>
+<script src="lab-common.js"></script>
+<script>
+(() => {
+  'use strict';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+  /* ═══ the catalogue: every PDF tool in the Lab ═══════════════════ */
+  const ICON = {
+    compress:'M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5',
+    organize:'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+    merge:'M6 3v6a6 6 0 0 0 6 6M18 3v6a6 6 0 0 1-6 6M12 15v6',
+    split:'M12 3v6M12 9l-6 6M12 9l6 6M6 15v6M18 15v6',
+    erase:'M4 6h16v12H4zM7 12h10',
+    sign:'M4 20h16M5 16l9-9 3 3-9 9H5z',
+    number:'M5 9h14M5 15h14M10 4L8 20M16 4l-2 16',
+    watermark:'M12 3l9 9-9 9-9-9z',
+    edit:'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3',
+    crop:'M6 2v14h14M2 6h14v14',
+    repair:'M14 6a4 4 0 1 0-5 5l-6 6 2 2 6-6a4 4 0 0 0 3-7z',
+    compare:'M4 4h7v16H4zM13 4h7v16h-7z',
+    image:'M3 5h18v14H3zM3 16l5-5 4 4 3-3 6 6',
+    word:'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7',
+    table:'M3 5h18v14H3zM3 10h18M9 5v14M15 5v14',
+    text:'M4 6h16M4 10h12M4 14h16M4 18h9',
+    ocr:'M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4M8 12h8',
+    html:'M8 8l-4 4 4 4M16 8l4 4-4 4M13 6l-2 12',
+    camera:'M4 8h4l2-3h4l2 3h4v11H4zM12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    stamp:'M9 4h6v6l3 3v3H6v-3l3-3zM5 20h14',
+    highlight:'M5 17l8-8 4 4-8 8H5zM14 6l3-3 4 4-3 3',
+    layout:'M4 4h16v16H4zM4 9h16M4 15h16',
+    shield:'M12 3l8 3v6c0 5-3 8-8 9-5-1-8-4-8-9V6zM9 12l2 2 4-4',
+    spark:'M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z'
+  };
+  const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON[k] || ICON.word}"/></svg>`;
+
+  const CATS = [
+    { id:'organise', name:'Organise & fix' },
+    { id:'edit',     name:'Edit & mark up' },
+    { id:'protect',  name:'Protect & sign' },
+    { id:'convert',  name:'Convert from PDF' },
+    { id:'make',     name:'Make a PDF' }
+  ];
+  // pdf:true  -> takes a PDF, so it can be opened with the file on the desk
+  const TOOLS = [
+    { id:'pdf-compress', file:'pdf-compress.html', name:'Compress a PDF', cat:'organise', ico:'compress', pdf:true, desc:'Shrink a PDF to a size limit you choose — for portals that cap uploads.', tags:'reduce size smaller kb mb upload limit' },
+    { id:'pdf-organize', file:'pdf-organize.html', name:'Organise pages', cat:'organise', ico:'organize', pdf:true, desc:'Drag pages to reorder, rotate individual pages, or remove them.', tags:'reorder rotate delete remove arrange sort' },
+    { id:'pdf-merge',    file:'pdf-merge.html',    name:'Merge PDFs', cat:'organise', ico:'merge', pdf:true, tag:'add more files', desc:'Combine several PDFs — pleadings, annexures, covering letters — into one file.', tags:'combine join annexure append' },
+    { id:'pdf-split',    file:'pdf-split.html',    name:'Split a PDF', cat:'organise', ico:'split', pdf:true, desc:'Pull out a page range, or break every page into its own file.', tags:'extract pages separate divide range' },
+    { id:'crop-pdf',     file:'crop-pdf.html',     name:'Crop PDF', cat:'organise', ico:'crop', pdf:true, desc:'Trim a page’s margins non-destructively — the text underneath stays intact.', tags:'trim margins cut' },
+    { id:'repair-pdf',   file:'repair-pdf.html',   name:'Repair PDF', cat:'organise', ico:'repair', pdf:true, desc:'Fix a damaged file that won’t open properly, or that other tools reject.', tags:'fix broken corrupt damaged' },
+    { id:'compare-pdf',  file:'compare-pdf.html',  name:'Compare PDF', cat:'organise', ico:'compare', pdf:true, desc:'View two versions side by side, or highlight exactly what changed.', tags:'diff difference versions changes' },
+
+    { id:'edit-pdf',       file:'edit-pdf.html',       name:'Edit PDF', cat:'edit', ico:'edit', pdf:true, desc:'Add text, images, shapes or freehand marks anywhere on a page.', tags:'write type draw insert annotate' },
+    { id:'highlight-notes',file:'highlight-notes.html',name:'Highlight & notes', cat:'edit', ico:'highlight', pdf:true, desc:'Highlight, underline, freehand and sticky notes on a page.', tags:'comment underline sticky annotate mark' },
+    { id:'stamps',         file:'stamps.html',         name:'Stamps', cat:'edit', ico:'stamp', pdf:true, desc:'Presets such as Received and Approved, plus custom stamps.', tags:'received approved seal' },
+    { id:'header-footer',  file:'header-footer.html',  name:'Header & footer', cat:'edit', ico:'layout', pdf:true, desc:'Letterhead, case number, court name across every page.', tags:'letterhead case number running' },
+    { id:'pdf-pagenumber', file:'pdf-pagenumber.html', name:'Number pages', cat:'edit', ico:'number', pdf:true, desc:'Add running page numbers, or sequential Bates-style file numbers.', tags:'page numbers bates paginate' },
+    { id:'pdf-watermark',  file:'pdf-watermark.html',  name:'Add a watermark', cat:'edit', ico:'watermark', pdf:true, desc:'Stamp DRAFT, CERTIFIED COPY, or your own text across every page.', tags:'draft confidential certified copy' },
+
+    { id:'pdf-erase', file:'pdf-erase.html', name:'Smart erase', cat:'protect', ico:'erase', pdf:true, desc:'Black out names, numbers or blocks of text — the original content is destroyed, not just covered.', tags:'redact blackout hide blur censor sensitive aadhaar' },
+    { id:'pdf-sign',  file:'pdf-sign.html',  name:'Sign a PDF', cat:'protect', ico:'sign', pdf:true, desc:'Draw, type or upload a signature, then place and resize it on any page.', tags:'signature autograph initial' },
+    { id:'checksum',  file:'checksum.html',  name:'Checksum (SHA-256)', cat:'protect', ico:'shield', pdf:true, desc:'Hash a file on this device, or compare two files after signing.', tags:'hash verify integrity sha' },
+
+    { id:'smart-convert', file:'smart-convert.html', name:'Smart Convert', cat:'convert', ico:'spark', pdf:true, tag:'recommended', desc:'Auto-detect text vs scan · best private path to Word.', tags:'word docx auto detect' },
+    { id:'pdf-to-word',   file:'pdf-to-word.html',   name:'PDF to Word', cat:'convert', ico:'word', pdf:true, desc:'Get the text of a PDF into an editable .docx file.', tags:'docx doc editable' },
+    { id:'ocr-to-word',   file:'ocr-to-word.html',   name:'OCR → Word (scans)', cat:'convert', ico:'ocr', pdf:true, desc:'Recognise text from a scanned PDF or photo, then download .docx.', tags:'scan scanned recognise docx ocr' },
+    { id:'ocr',           file:'ocr.html',           name:'OCR (English, Urdu, Hindi)', cat:'convert', ico:'ocr', pdf:true, desc:'Searchable text layer via Tesseract, fully in the browser.', tags:'scan scanned searchable text recognise urdu hindi' },
+    { id:'pdf-to-excel',  file:'pdf-to-excel.html',  name:'PDF to Excel', cat:'convert', ico:'table', pdf:true, desc:'Guess column breaks in a PDF’s text and write it out as a spreadsheet.', tags:'xlsx spreadsheet table' },
+    { id:'pdf-to-jpg',    file:'pdf-to-jpg.html',    name:'PDF to JPG', cat:'convert', ico:'image', pdf:true, desc:'Export every page as its own JPG or PNG image.', tags:'image picture png photo' },
+    { id:'pdf-to-markdown',file:'pdf-to-markdown.html',name:'PDF to Markdown', cat:'convert', ico:'text', pdf:true, desc:'Pull the text out as Markdown, with headings and lists guessed automatically.', tags:'md text plain' },
+
+    { id:'word-to-pdf',  file:'word-to-pdf.html',  name:'Word to PDF', cat:'make', ico:'word', pdf:false, tag:'starts from .docx', desc:'Convert a .docx file into a PDF.', tags:'docx doc' },
+    { id:'excel-to-pdf', file:'excel-to-pdf.html', name:'Excel to PDF', cat:'make', ico:'table', pdf:false, tag:'starts from .xlsx', desc:'Turn a spreadsheet into a clean, paginated table PDF.', tags:'xlsx csv spreadsheet' },
+    { id:'html-to-pdf',  file:'html-to-pdf.html',  name:'HTML to PDF', cat:'make', ico:'html', pdf:false, tag:'starts from .html', desc:'Paste HTML or upload a file to render it as a PDF.', tags:'web page code' },
+    { id:'image-to-pdf', file:'image-to-pdf.html', name:'Images to PDF', cat:'make', ico:'image', pdf:false, tag:'starts from photos', desc:'Turn one or more photos or scans into a single, properly sized PDF.', tags:'jpg png photos scans' },
+    { id:'camera-to-pdf',file:'camera-to-pdf.html',name:'Camera to PDF', cat:'make', ico:'camera', pdf:false, tag:'starts from camera', desc:'Capture several pages and bind them into one PDF.', tags:'scan capture phone photo' }
+  ];
+  const byId = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
+
+  /* ═══ state ═════════════════════════════════════════════════════ */
+  const S = { bytes:null, name:'', pdf:null, pages:0, info:null, sel:new Set(), history:[], busy:false, anchor:-1 };
+  const ls = {
+    get(k, d){ try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } },
+    set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  let favs = new Set(ls.get('arzi_pg_fav', []));
+  let recent = ls.get('arzi_pg_recent', []);
+  let cat = 'all', query = '';
+
+  /* ═══ small helpers ═════════════════════════════════════════════ */
+  const baseName = (n) => n.replace(/\.pdf$/i, '');
+  const pad = (n) => String(n);
+  function rangeLabel(idx){            // [0,1,2,5] -> "1-3_6"
+    const out = []; let s = null, p = null;
+    idx.concat([-9]).forEach((n) => {
+      if (s === null) { s = p = n; return; }
+      if (n === p + 1) { p = n; return; }
+      out.push(s === p ? pad(s + 1) : pad(s + 1) + '-' + pad(p + 1)); s = p = n;
+    });
+    return out.join('_');
+  }
+  function parseRange(txt, total){
+    txt = (txt || '').trim(); const set = new Set(); let ok = true;
+    if (!txt) return { ok:true, set };
+    txt.split(',').forEach((part) => {
+      const m = /^\s*(\d+)\s*(?:-\s*(\d+))?\s*$/.exec(part);
+      if (!m) { ok = false; return; }
+      let a = +m[1], b = m[2] ? +m[2] : a; if (a > b) [a, b] = [b, a];
+      for (let k = a; k <= b; k++) if (k >= 1 && k <= total) set.add(k - 1);
+    });
+    return { ok, set };
+  }
+  function ago(ts){
+    const m = Math.round((Date.now() - ts) / 60000);
+    return m < 1 ? 'just now' : m === 1 ? '1 min ago' : m + ' min ago';
+  }
+  function formatName(w, h){
+    const near = (a, b) => Math.abs(a - b) < 9;
+    const [s, l] = w < h ? [w, h] : [h, w];
+    if (near(s, 595) && near(l, 842)) return 'A4';
+    if (near(s, 612) && near(l, 792)) return 'Letter';
+    if (near(s, 612) && near(l, 1008)) return 'Legal';
+    if (near(s, 842) && near(l, 1191)) return 'A3';
+    if (near(s, 420) && near(l, 595)) return 'A5';
+    return Math.round(s / 2.835) + ' × ' + Math.round(l / 2.835) + ' mm';
+  }
+  const pdfLib = (bytes) => PDFLib.PDFDocument.load(bytes.slice(0), { ignoreEncryption:true });
+  const asBlob = (u8) => new Blob([u8], { type:'application/pdf' });
+  function downloadFile(blob, name){
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /* ═══ opening a file ════════════════════════════════════════════ */
+  async function loadFile(file){
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { toast('That is not a PDF — choose a .pdf file.', 'error'); return; }
+    if (file.size > 150 * 1024 * 1024) { toast('That file is very large (over 150 MB). Try a smaller one.', 'error'); return; }
+    S.history = [];
+    await setWorking(new Uint8Array(await file.arrayBuffer()), file.name, { fresh:true });
+  }
+
+  async function setWorking(bytes, name, opts){
+    opts = opts || {};
+    if (S.busy) return; S.busy = true;
+    document.body.style.cursor = 'progress';
+    try {
+      const doc = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+      if (S.pdf) { try { S.pdf.destroy(); } catch (e) {} }
+      S.pdf = doc; S.bytes = bytes; S.name = name; S.pages = doc.numPages;
+      if (opts.fresh || !opts.keepSel) S.sel = new Set();
+      S.anchor = -1;
+      S.info = await analyse(doc, bytes.length);
+      renderCard(); buildGrid(); renderSuggestions(); renderUsing();
+      $('dz').hidden = true; $('startRow').hidden = true; $('fileCard').hidden = false; $('pagesBox').hidden = false;
+      $('undoBtn').hidden = !S.history.length;
+      document.body.classList.add('has-file');
+      refreshTools();
+      if (opts.fresh) $('fileCard').scrollIntoView({ block:'nearest', behavior:'smooth' });
+    } catch (e) {
+      const pw = e && (e.name === 'PasswordException' || /password/i.test(e.message || ''));
+      toast(pw ? 'This PDF is password-protected. Remove the password, then try again.' : 'Could not open this PDF. Try “Repair PDF”.', 'error');
+      if (!S.bytes) { $('dz').hidden = false; }
+    } finally { S.busy = false; document.body.style.cursor = ''; }
+  }
+
+  async function analyse(doc, size){
+    const n = doc.numPages, probe = [...new Set([1, Math.ceil(n / 2), n])];
+    let chars = 0;
+    for (const pn of probe) {
+      const pg = await doc.getPage(pn), tc = await pg.getTextContent();
+      chars += tc.items.reduce((a, it) => a + (it.str || '').trim().length, 0);
+    }
+    const p1 = await doc.getPage(1), vp = p1.getViewport({ scale:1 });
+    const avg = chars / probe.length;
+    return { pages:n, size, hasText: avg > 30, avg, w:vp.width, h:vp.height, fmt: formatName(vp.width, vp.height) };
+  }
+
+  /* ═══ the file card ═════════════════════════════════════════════ */
+  async function renderCard(){
+    $('fName').textContent = S.name;
+    const i = S.info, facts = [];
+    facts.push(`<span class="pg-badge">${i.pages} page${i.pages === 1 ? '' : 's'}</span>`);
+    facts.push(`<span class="pg-badge">${formatBytes(i.size)}</span>`);
+    facts.push(`<span class="pg-badge">${esc(i.fmt)}</span>`);
+    facts.push(i.hasText ? '<span class="pg-badge good">✓ Has selectable text</span>' : '<span class="pg-badge warn">Looks scanned — no text layer</span>');
+    if (i.size > 3 * 1024 * 1024) facts.push('<span class="pg-badge warn">Large file</span>');
+    $('fFacts').innerHTML = facts.join('');
+    const box = $('thumb'); box.innerHTML = '';
+    const c = document.createElement('canvas'); box.appendChild(c);
+    await drawPage(S.pdf, 1, c, 240);
+  }
+  async function drawPage(doc, n, canvas, width){
+    const page = await doc.getPage(n), v0 = page.getViewport({ scale:1 });
+    const k = (width / v0.width) * Math.min(2, window.devicePixelRatio || 1), vp = page.getViewport({ scale:k });
+    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height);
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+  }
+
+  /* ═══ page grid + selection ═════════════════════════════════════ */
+  let io = null, queue = [], running = 0;
+  function buildGrid(){
+    const grid = $('grid'); grid.innerHTML = '';
+    if (io) io.disconnect(); queue = []; running = 0;
+    io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { io.unobserve(en.target); queue.push(en.target); pump(); } });
+    }, { root: grid, rootMargin:'200px' });
+    for (let i = 0; i < S.pages; i++) {
+      const t = document.createElement('div');
+      t.className = 'pg-tile' + (S.sel.has(i) ? ' on' : ''); t.dataset.i = i; t.tabIndex = 0;
+      t.setAttribute('role', 'checkbox'); t.setAttribute('aria-checked', S.sel.has(i) ? 'true' : 'false'); t.setAttribute('aria-label', 'Page ' + (i + 1));
+      t.innerHTML = '<span class="tick"></span><div class="cv"></div><div class="no">' + (i + 1) + '</div>';
+      grid.appendChild(t); io.observe(t);
+    }
+    updateSelUI();
+  }
+  async function pump(){
+    while (running < 2 && queue.length) {
+      const tile = queue.shift(); running++;
+      (async () => {
+        try {
+          const cv = tile.querySelector('.cv'), c = document.createElement('canvas');
+          await drawPage(S.pdf, +tile.dataset.i + 1, c, 130); cv.innerHTML = ''; cv.appendChild(c);
+        } catch (e) {} finally { running--; pump(); }
+      })();
+    }
+  }
+  function toggle(i, additive, range){
+    if (range && S.anchor >= 0) { const [a, b] = [Math.min(S.anchor, i), Math.max(S.anchor, i)]; for (let k = a; k <= b; k++) S.sel.add(k); }
+    else { if (S.sel.has(i)) S.sel.delete(i); else S.sel.add(i); S.anchor = i; }
+    syncTiles();
+  }
+  function syncTiles(){
+    $('grid').querySelectorAll('.pg-tile').forEach((t) => {
+      const on = S.sel.has(+t.dataset.i); t.classList.toggle('on', on); t.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    updateSelUI();
+  }
+  function updateSelUI(){
+    const n = S.sel.size, tot = S.pages;
+    $('selCount').textContent = n ? `${n} of ${tot} selected` : `${tot} page${tot === 1 ? '' : 's'} — none selected`;
+    $('selActions').hidden = !n;
+    $('selLbl').textContent = n === 1 ? '1 page selected' : n + ' pages selected';
+    $('gridHelp').textContent = n ? 'Tools below will receive only the selected pages.' : 'With no selection, tools receive the whole file. Shift-click selects a range.';
+    renderUsing();
+  }
+  $('grid').addEventListener('click', (e) => { const t = e.target.closest('.pg-tile'); if (t) toggle(+t.dataset.i, true, e.shiftKey); });
+  $('grid').addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && e.target.classList.contains('pg-tile')) { e.preventDefault(); toggle(+e.target.dataset.i, true, e.shiftKey); } });
+  $('pagesBox').querySelectorAll('[data-sel]').forEach((b) => b.addEventListener('click', () => {
+    const k = b.dataset.sel, all = [...Array(S.pages).keys()];
+    if (k === 'all') S.sel = new Set(all);
+    else if (k === 'none') S.sel = new Set();
+    else if (k === 'invert') S.sel = new Set(all.filter((i) => !S.sel.has(i)));
+    else if (k === 'odd') S.sel = new Set(all.filter((i) => i % 2 === 0));
+    else if (k === 'even') S.sel = new Set(all.filter((i) => i % 2 === 1));
+    $('rangeInput').value = ''; syncTiles();
+  }));
+  $('rangeInput').addEventListener('input', (e) => {
+    const r = parseRange(e.target.value, S.pages); e.target.classList.toggle('bad', !r.ok);
+    if (r.ok) { S.sel = r.set; syncTiles(); }
+  });
+
+  /* ═══ quick edits (pdf-lib), with undo ══════════════════════════ */
+  const sortedSel = () => [...S.sel].sort((a, b) => a - b);
+  async function edit(op){
+    const idx = sortedSel(); if (!idx.length) return;
+    if (op === 'save') { const u8 = await extractBytes(idx); downloadFile(asBlob(u8), baseName(S.name) + '-pages-' + rangeLabel(idx) + '.pdf'); return; }
+    if (op === 'delete' && idx.length === S.pages) { toast('That would remove every page.', 'error'); return; }
+    const prev = { bytes:S.bytes, name:S.name };
+    try {
+      let u8, name = S.name, keep = false;
+      if (op === 'extract') { u8 = await extractBytes(idx); name = baseName(S.name) + '-pages-' + rangeLabel(idx) + '.pdf'; }
+      else if (op === 'delete') {
+        const d = await pdfLib(S.bytes); [...idx].reverse().forEach((i) => d.removePage(i)); u8 = await d.save();
+        name = baseName(S.name) + '-edited.pdf';
+      } else if (op === 'rotate') {
+        const d = await pdfLib(S.bytes);
+        idx.forEach((i) => { const p = d.getPage(i); p.setRotation(PDFLib.degrees((p.getRotation().angle + 90) % 360)); });
+        u8 = await d.save(); name = S.name; keep = true;
+      }
+      S.history.push(prev); if (S.history.length > 8) S.history.shift();
+      const keepSel = keep ? new Set(S.sel) : null;
+      await setWorking(u8, name, { keepSel: !!keep });
+      if (keepSel) { S.sel = keepSel; syncTiles(); }
+      $('undoBtn').hidden = false;
+      toast(op === 'extract' ? 'Kept ' + idx.length + ' page' + (idx.length === 1 ? '' : 's') + '.' : op === 'delete' ? 'Deleted ' + idx.length + ' page' + (idx.length === 1 ? '' : 's') + '.' : 'Rotated.');
+    } catch (e) { toast('That change could not be applied.', 'error'); }
+  }
+  async function extractBytes(idx){
+    const src = await pdfLib(S.bytes), out = await PDFLib.PDFDocument.create();
+    (await out.copyPages(src, idx)).forEach((p) => out.addPage(p)); return out.save();
+  }
+  $('selActions').querySelectorAll('[data-op]').forEach((b) => b.addEventListener('click', () => edit(b.dataset.op)));
+  $('undoBtn').addEventListener('click', async () => {
+    const prev = S.history.pop(); if (!prev) return;
+    await setWorking(prev.bytes, prev.name, { fresh:false }); $('undoBtn').hidden = !S.history.length; toast('Undone.');
+  });
+  $('downloadBtn').addEventListener('click', () => { if (S.bytes) downloadFile(asBlob(S.bytes), S.name); });
+  $('replaceBtn').addEventListener('click', () => $('fileInput').click());
+  $('removeBtn').addEventListener('click', () => {
+    if (S.pdf) { try { S.pdf.destroy(); } catch (e) {} }
+    S.bytes = null; S.pdf = null; S.pages = 0; S.sel = new Set(); S.history = []; S.info = null;
+    $('fileCard').hidden = true; $('pagesBox').hidden = true; $('suggest').hidden = true; $('dz').hidden = false; $('startRow').hidden = false;
+    document.body.classList.remove('has-file'); renderUsing(); refreshTools(); loadResume();
+  });
+
+  /* ═══ what to suggest for this file ═════════════════════════════ */
+  function renderSuggestions(){
+    const i = S.info, list = [];
+    const add = (id, why, score) => list.push({ t:byId[id], why, score });
+    if (!i.hasText) { add('ocr', 'This looks like a scan. OCR adds searchable text.', 100); add('ocr-to-word', 'Turn the scanned pages into an editable Word file.', 90); }
+    if (i.size > 3 * 1024 * 1024) add('pdf-compress', 'It is ' + formatBytes(i.size) + ' — portals often cap uploads at 1–2 MB.', 95);
+    if (i.pages > 1) { add('pdf-split', i.pages + ' pages — pull out just the part you need.', 70); add('pdf-organize', 'Reorder, rotate or remove pages.', 60); }
+    if (i.pages > 3) add('pdf-pagenumber', 'Number the ' + i.pages + ' pages before filing.', 55);
+    add('pdf-erase', 'Black out names or numbers before you share it.', 75);
+    add('pdf-sign', 'Place your signature on the right page.', 72);
+    if (i.hasText) add('smart-convert', 'Get the text out as an editable Word file.', 50);
+    add('pdf-watermark', 'Mark it DRAFT or CERTIFIED COPY.', 40);
+    const top = list.sort((a, b) => b.score - a.score).slice(0, 4);
+    $('suggestGrid').innerHTML = top.map((s) => `<a class="sugg" href="tools/${s.t.file}" data-id="${s.t.id}"><span class="s-name">${esc(s.t.name)}</span><span class="s-why">${esc(s.why)}</span><span class="s-go">Open with this file →</span></a>`).join('');
+    $('suggestWhy').textContent = 'based on what is inside it';
+    $('suggest').hidden = false;
+  }
+  $('suggestGrid').addEventListener('click', (e) => { const a = e.target.closest('.sugg'); if (a) { e.preventDefault(); launch(byId[a.dataset.id]); } });
+
+  /* ═══ the tool finder ═══════════════════════════════════════════ */
+  function renderChips(){
+    const chips = [{ id:'all', name:'All tools' }, ...CATS, { id:'fav', name:'★ Favourites' }];
+    $('chips').innerHTML = chips.map((c) => `<button class="chip${cat === c.id ? ' on' : ''}" role="tab" aria-selected="${cat === c.id}" data-cat="${c.id}">${esc(c.name)}</button>`).join('');
+  }
+  $('chips').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (b) { cat = b.dataset.cat; renderChips(); refreshTools(); } });
+
+  const score = (t, terms) => {
+    const hay = (t.name + ' ' + t.desc + ' ' + (t.tags || '') + ' ' + (t.tag || '')).toLowerCase();
+    let s = 0;
+    for (const w of terms) { if (!hay.includes(w)) return -1; s += t.name.toLowerCase().includes(w) ? 3 : 1; }
+    return s;
+  };
+  const mark = (txt, terms) => {
+    let out = esc(txt);
+    terms.forEach((w) => { if (w.length > 1) out = out.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>'); });
+    return out;
+  };
+  function cardHtml(t, terms){
+    const withFile = !!S.bytes && t.pdf;
+    const go = withFile ? 'Open with your file →' : (S.bytes ? 'Open →' : 'Open →');
+    return `<a class="tool${withFile ? ' with-file' : ''}" href="tools/${t.file}" data-id="${t.id}">
+      <span class="t-ico">${icon(t.ico)}</span>
+      <span class="t-body"><span class="t-name">${mark(t.name, terms)}${t.tag ? `<span class="t-tag">${esc(t.tag)}</span>` : ''}</span>
+      <span class="t-desc">${mark(t.desc, terms)}</span><span class="t-go">${go}</span></span>
+      <button class="t-fav${favs.has(t.id) ? ' on' : ''}" type="button" aria-label="${favs.has(t.id) ? 'Remove from' : 'Add to'} favourites" aria-pressed="${favs.has(t.id)}">${favs.has(t.id) ? '★' : '☆'}</button>
+    </a>`;
+  }
+  function refreshTools(){
+    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+    let pool = TOOLS.map((t) => ({ t, s: terms.length ? score(t, terms) : 0 })).filter((x) => x.s >= 0);
+    if (cat === 'fav') pool = pool.filter((x) => favs.has(x.t.id));
+    else if (cat !== 'all') pool = pool.filter((x) => x.t.cat === cat);
+    const box = $('tools');
+    if (!pool.length) {
+      box.innerHTML = cat === 'fav' && !terms.length
+        ? '<div class="pg-empty"><b>No favourites yet.</b><br>Tap the ☆ on any tool to keep it here.</div>'
+        : `<div class="pg-empty"><b>No tool matches “${esc(query)}”.</b><br>Try “compress”, “sign”, “word”, “merge” or “scan”.</div>`;
+      return;
+    }
+    if (terms.length) pool.sort((a, b) => b.s - a.s);
+    const sections = (terms.length || cat === 'fav')
+      ? [{ name: terms.length ? pool.length + ' result' + (pool.length === 1 ? '' : 's') : 'Your favourites', items: pool }]
+      : CATS.map((c) => ({ name: c.name, items: pool.filter((x) => x.t.cat === c.id) })).filter((s) => s.items.length);
+    box.innerHTML = sections.map((s) => `<div class="reg-section"><span class="reg-tab">${esc(s.name)}</span><div class="reg-grid">${s.items.map((x) => cardHtml(x.t, terms)).join('')}</div></div>`).join('');
+    renderRecent();
+  }
+  $('tools').addEventListener('click', (e) => {
+    const fav = e.target.closest('.t-fav');
+    const a = e.target.closest('.tool'); if (!a) return;
+    const t = byId[a.dataset.id];
+    if (fav) {
+      e.preventDefault(); e.stopPropagation();
+      favs.has(t.id) ? favs.delete(t.id) : favs.add(t.id); ls.set('arzi_pg_fav', [...favs]); refreshTools(); return;
+    }
+    e.preventDefault(); launch(t);
+  });
+  let qTimer; $('q').addEventListener('input', (e) => { clearTimeout(qTimer); qTimer = setTimeout(() => { query = e.target.value.trim(); refreshTools(); }, 90); });
+  $('q').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { const first = $('tools').querySelector('.tool'); if (first) first.click(); }
+    if (e.key === 'Escape') { e.target.value = ''; query = ''; e.target.blur(); refreshTools(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('q').focus(); $('q').select(); }
+  });
+
+  function renderRecent(){
+    const items = recent.map((id) => byId[id]).filter(Boolean).slice(0, 5);
+    const box = $('recent');
+    if (!items.length || query || cat !== 'all') { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = '<span>Recently used:</span>' + items.map((t) => `<a href="tools/${t.file}" data-id="${t.id}">${esc(t.name)}</a>`).join('');
+  }
+  $('recent').addEventListener('click', (e) => { const a = e.target.closest('a'); if (a) { e.preventDefault(); launch(byId[a.dataset.id]); } });
+
+  /* what the tools will receive */
+  function renderUsing(){
+    const box = $('using');
+    if (!S.bytes) { box.innerHTML = '<span class="pill none">No file on the desk</span> Tools open empty — drop a PDF above to open them with it already loaded.'; return; }
+    const n = S.sel.size;
+    box.innerHTML = n && n < S.pages
+      ? `<span class="pill">${n} selected page${n === 1 ? '' : 's'}</span> of <b>${esc(S.name)}</b> will be sent to the tool you open.`
+      : `<span class="pill">Whole file</span> <b>${esc(S.name)}</b> · ${S.pages} page${S.pages === 1 ? '' : 's'} will be sent to the tool you open.`;
+  }
+
+  /* ═══ opening a tool, with the file ═════════════════════════════ */
+  function launch(t){
+    if (!t) return;
+    recent = [t.id, ...recent.filter((x) => x !== t.id)].slice(0, 8); ls.set('arzi_pg_recent', recent);
+    const href = 'tools/' + t.file;
+    if (!S.bytes) { location.href = href; return; }                          // nothing on the desk: just open the tool
+    if (!t.pdf || !window.ArziDesk) { window.open(href, '_blank', 'noopener'); toast('Opening ' + t.name + '…'); return; }
+    const sel = S.sel.size && S.sel.size < S.pages ? sortedSel() : null;
+    const name = sel ? baseName(S.name) + '-pages-' + rangeLabel(sel) + '.pdf' : S.name;
+    const blob = sel ? extractBytes(sel).then(asBlob) : asBlob(S.bytes);        // handoff() opens the tab first, then waits for this
+    toast('Opening ' + t.name + ' with ' + (sel ? sel.length + ' selected page' + (sel.length === 1 ? '' : 's') : 'your file') + '…');
+    ArziDesk.handoff(blob, name, { target:'lab/tools/' + t.file, source:'PDF Playground' }).then((r) => {
+      if (r.ok) return;
+      if (r.reason === 'popup') toast('Your browser blocked the new tab — allow pop-ups for this site.', 'error');
+      else { downloadFile(asBlob(S.bytes), S.name); toast('Could not pass it on automatically — your file was downloaded; choose it in the tool.', 'error'); }
+    });
+    refreshTools();
+  }
+
+  /* ═══ dropping, pasting, resuming ═══════════════════════════════ */
+  wireDropzone($('dz'), $('fileInput'), { onFiles: (files) => loadFile(files[0]) });
+  let dragDepth = 0;
+  const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files');
+  window.addEventListener('dragenter', (e) => { if (hasFiles(e)) { dragDepth++; $('veil').classList.add('show'); } });
+  window.addEventListener('dragleave', (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; $('veil').classList.remove('show'); } });
+  window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+  window.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return; e.preventDefault(); dragDepth = 0; $('veil').classList.remove('show');
+    const f = [...e.dataTransfer.files].find((x) => /pdf/i.test(x.type) || /\.pdf$/i.test(x.name));
+    f ? loadFile(f) : toast('Drop a PDF file.', 'error');
+  });
+  document.addEventListener('paste', (e) => {
+    const f = [...((e.clipboardData && e.clipboardData.files) || [])].find((x) => /pdf/i.test(x.type));
+    if (f) { e.preventDefault(); loadFile(f); }
+  });
+
+  async function loadResume(){
+    if (!window.ArziDesk) return;
+    const list = await ArziDesk.results();
+    $('resume').hidden = !list.length;
+    $('resumeList').innerHTML = list.map((r) => `<button class="rs-chip" data-id="${esc(r.id)}">↺ <b>${esc(r.name)}</b><span>${r.source ? 'from ' + esc(r.source) + ' · ' : ''}${ago(r.created)} · ${formatBytes(r.size)}</span></button>`).join('');
+  }
+  $('resumeList').addEventListener('click', async (e) => {
+    const b = e.target.closest('.rs-chip'); if (!b) return;
+    const f = await ArziDesk.getFile(b.dataset.id);
+    f ? loadFile(f) : (toast('That file has expired.', 'error'), loadResume());
+  });
+
+  /* settings */
+  const remember = $('rememberToggle');
+  if (window.ArziDesk) remember.checked = ArziDesk.remember(); else remember.parentNode.hidden = true;
+  remember.addEventListener('change', async () => { await ArziDesk.setRemember(remember.checked); loadResume(); toast(remember.checked ? 'Results will be kept for 30 minutes.' : 'Nothing will be kept — and everything held was cleared.'); });
+  $('clearBtn').addEventListener('click', async () => { if (window.ArziDesk) await ArziDesk.clearAll(); loadResume(); toast('Cleared everything held in this browser.'); });
+
+  /* go */
+  renderChips(); renderUsing(); refreshTools(); loadResume();
+})();
+</script>
+</body>
+</html>
